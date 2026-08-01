@@ -14,6 +14,17 @@ test('filter is case-insensitive and supports exclusion', () => {
   assert.deepStrictEqual(filterApps(apps, 'zzz'), []);
 });
 
+test('filter matches and hides localized display names', () => {
+  const localized = [
+    { id: 'a', name: 'Books', displayName: '图书' },
+    { id: 'b', name: 'Notes', displayName: '备忘录' },
+  ];
+  assert.deepStrictEqual(filterApps(localized, '图书').map((a) => a.id), ['a']);
+  assert.deepStrictEqual(filterApps(localized, 'BOOKS').map((a) => a.id), ['a']);
+  assert.deepStrictEqual(filterApps(localized, '', ['Books']).map((a) => a.id), ['b']);
+  assert.deepStrictEqual(filterApps(localized, '', ['图书']).map((a) => a.id), ['b']);
+});
+
 test('sort by name is stable', () => {
   assert.deepStrictEqual(sortApps(apps, 'name').map((a) => a.id), ['c', 'b', 'a']);
 });

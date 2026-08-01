@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
     },
   });
   win.setWindowButtonVisibility(false);
-  registerIpcHandlers({ current: win });
+  registerIpcHandlers(() => win.hide(), () => win);
   await refreshApps();
   await win.loadFile(path.join(__dirname, '..', 'src', 'renderer', 'index.html'));
   await new Promise((r) => setTimeout(r, 800));
@@ -45,6 +45,7 @@ app.whenReady().then(async () => {
     searchVisible: !document.getElementById('search-input').classList.contains('hidden'),
   })`);
   const image = await win.capturePage();
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, image.toPNG());
   console.log(`[verify] counts=${JSON.stringify(counts)} saved=${outPath}`);
 

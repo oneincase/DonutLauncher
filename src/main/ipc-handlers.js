@@ -1,7 +1,8 @@
-const { ipcMain, dialog } = require('electron');
+const { ipcMain, dialog, screen } = require('electron');
 const { scanApplications } = require('./app-scanner');
 const { launchApp } = require('./app-launcher');
 const settings = require('./settings');
+const { normalizeViewSize, WINDOW_SCALE } = require('./window-size');
 
 let cachedApps = [];
 
@@ -10,7 +11,7 @@ async function refreshApps() {
   return cachedApps;
 }
 
-function registerIpcHandlers(mainWindowRef) {
+function registerIpcHandlers(hideWindow = () => {}, getMainWindow = () => null) {
   ipcMain.handle('donut:getApps', async () => {
     if (cachedApps.length === 0) {
       cachedApps = await scanApplications();
@@ -30,9 +31,7 @@ function registerIpcHandlers(mainWindowRef) {
       recentUsage[appEntry.id] = Date.now();
       settings.set('recentUsage', recentUsage);
     }
-    if (mainWindowRef.current) {
-      mainWindowRef.current.hide();
-    }
+    hideWindow();
     return { success: true };
   });
 
@@ -46,10 +45,27 @@ function registerIpcHandlers(mainWindowRef) {
   });
 
   ipcMain.handle('donut:hideWindow', async () => {
-    if (mainWindowRef.current) {
-      mainWindowRef.current.hide();
-    }
+    hideWindow();
     return { success: true };
+  });
+
+  ipcMain.handle('donut:setWindowSize', (_event, appCount) => {
+    const win = getMainWindow();
+    if (!win || win.isDestroyed()) return null;
+    const display = screen.getDisplayMatching(win.getBounds());
+    const viewSize = normalizeViewSize(appCount, display.bounds);
+    const windowSize = Math.ceil(viewSize * WINDOW_SCALE);
+    const bounds = win.getBounds();
+    if (bounds.width !== windowSize || bounds.height !== windowSize) {
+      const { x, y, width, height } = display.workArea;
+      win.setBounds({
+        width: windowSize,
+        height: windowSize,
+        x: x + Math.round((width - windowSize) / 2),
+        y: y + Math.round((height - windowSize) / 2),
+      });
+    }
+    return viewSize;
   });
 
   ipcMain.handle('donut:pickFolder', async () => {
@@ -60,4 +76,8 @@ function registerIpcHandlers(mainWindowRef) {
   });
 }
 
-module.exports = { registerIpcHandlers, refreshApps };
+module.exports = {
+  registerIpcHandlers,
+  refreshApps,
+  getCachedApps: () => cachedApps,
+};

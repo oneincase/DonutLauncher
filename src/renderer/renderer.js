@@ -29,11 +29,14 @@
   const rotationSpeedInput = document.getElementById('rotation-speed-input');
   const rotationSpeedValue = document.getElementById('rotation-speed-value');
   const rotationInput = document.getElementById('rotation-input');
-  const searchToggleInput = document.getElementById('search-toggle-input');
   const sortInput = document.getElementById('sort-input');
   const colorPresets = document.getElementById('color-presets');
   const colorChips = document.getElementById('color-chips');
-  const colorPicker = document.getElementById('color-picker');
+  const colorPreview = document.getElementById('color-preview');
+  const colorHue = document.getElementById('color-hue');
+  const colorSaturation = document.getElementById('color-saturation');
+  const colorLightness = document.getElementById('color-lightness');
+  const colorHex = document.getElementById('color-hex');
   const iconScaleInput = document.getElementById('icon-scale-input');
   const iconScaleValue = document.getElementById('icon-scale-value');
   const defaultPathsList = document.getElementById('default-paths-list');
@@ -42,7 +45,7 @@
   const hiddenAppsList = document.getElementById('hidden-apps-list');
   const unhideAllBtn = document.getElementById('unhide-all-btn');
 
-  const CENTER = 360;
+  let viewSize = 720;
   const DEFAULT_COLORS = ['#FF6B9D', '#4ECDC4', '#FFE66D'];
   const COLOR_PRESETS = ['#FF6B9D', '#4ECDC4', '#FFE66D', '#4C9AFF', '#51CF66', '#FF922B', '#AE7FF0', '#FFFFFF'];
 
@@ -58,10 +61,19 @@
   let lastShortcutError = '';
   let ringColorsList = [];
   let recordingShortcut = false;
+  let searchDebounceId = null;
+  let initialLoadPromise = null;
+  let iconBodies = [];
+  let searchVisible = false;
 
   function getVisibleApps() {
     const filtered = filterApps(apps, searchQuery, settings.excludedApps || []);
     return sortApps(filtered, settings.sortMode || 'name', settings.favorites || [], settings.recentUsage || {});
+  }
+
+  function getVisibleAppCount() {
+    const excluded = new Set(settings.excludedApps || []);
+    return apps.filter((app) => !excluded.has(app.name)).length;
   }
 
   async function loadSettings() {
@@ -71,9 +83,9 @@
     strokeInput.value = settings.ringStrokeWidth ?? 2;
     rotationSpeedInput.value = settings.rotationSpeed ?? 1;
     rotationInput.checked = settings.enableRotation ?? true;
-    searchToggleInput.checked = settings.showSearchBar ?? true;
     sortInput.value = settings.sortMode || 'name';
     ringColorsList = settings.ringColors && settings.ringColors.length ? settings.ringColors.slice() : [...DEFAULT_COLORS];
+    syncColorPicker(ringColorsList[ringColorsList.length - 1] || DEFAULT_COLORS[0]);
     centerSizeInput.value = settings.centerIconSize ?? 56;
     iconScaleInput.value = settings.iconScale ?? 1.25;
     renderHiddenApps();
@@ -154,7 +166,20 @@
   async function loadApps() {
     apps = await window.donut.getApps();
     console.log(`[renderer] Loaded ${apps.length} apps`);
+    await syncViewSize();
     renderAll();
+  }
+
+  async function syncViewSize() {
+    try {
+      const size = await window.donut.setWindowSize(getVisibleAppCount());
+      if (size && size > 0) {
+        viewSize = size;
+        donutSvg.setAttribute('viewBox', `0 0 ${viewSize} ${viewSize}`);
+      }
+    } catch {
+      // Keep the current view size when the window is not available.
+    }
   }
 
   function createSVGElement(tag, attrs) {
@@ -167,10 +192,11 @@
 
   function renderRings(rings, opacity, strokeWidth) {
     ringsGroup.innerHTML = '';
+    const center = viewSize / 2;
     rings.forEach((ring, index) => {
       const circle = createSVGElement('circle', {
-        cx: CENTER,
-        cy: CENTER,
+        cx: center,
+        cy: center,
         r: ring.radius,
         stroke: ring.color,
         'stroke-width': strokeWidth,
@@ -226,7 +252,7 @@
           'dominant-baseline': 'middle',
           class: 'app-fallback-label',
         });
-        letter.textContent = (item.app.name || '?').charAt(0).toUpperCase();
+        letter.textContent = (item.app.displayName || item.app.name || '?').charAt(0).toUpperCase();
         letter.style.fontSize = `${Math.max(labelFontSize + 2, 9)}px`;
         body.appendChild(circle);
         body.appendChild(letter);
@@ -236,7 +262,7 @@
         class: 'app-label',
         y: half + 12,
       });
-      label.textContent = item.app.name;
+      label.textContent = item.app.displayName || item.app.name;
       label.style.fontSize = `${labelFontSize}px`;
       body.appendChild(label);
 
@@ -276,14 +302,17 @@
       });
       iconsGroup.appendChild(g);
     });
+    iconBodies = Array.from(iconsGroup.querySelectorAll('.app-icon-body'));
   }
 
   function renderCenter() {
     centerGroup.innerHTML = '';
+    const center = viewSize / 2;
     const g = createSVGElement('g', { id: 'center-icon' });
     const size = settings.centerIconSize ?? 56;
-    if (settings.centerIconPath) {
-      const inner = createSVGElement('g', { transform: `translate(${CENTER}, ${CENTER})` });
+    const centerIconPath = settings.centerIconPath || settings.defaultCenterIconPath;
+    if (centerIconPath) {
+      const inner = createSVGElement('g', { transform: `translate(${center}, ${center})` });
       const defs = createSVGElement('defs', {});
       const clip = createSVGElement('clipPath', { id: 'center-clip' });
       clip.appendChild(createSVGElement('circle', { cx: 0, cy: 0, r: size / 2 }));
@@ -295,11 +324,11 @@
         y: -size / 2,
         width: size,
         height: size,
-        href: settings.centerIconPath,
+        href: centerIconPath,
         preserveAspectRatio: 'xMidYMid slice',
         'clip-path': 'url(#center-clip)',
       });
-      image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', settings.centerIconPath);
+      image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', centerIconPath);
       inner.appendChild(image);
 
       const ring = createSVGElement('circle', {
@@ -320,8 +349,8 @@
     }
 
     const circle = createSVGElement('circle', {
-      cx: CENTER,
-      cy: CENTER,
+      cx: center,
+      cy: center,
       r: 44,
       fill: 'rgba(255, 255, 255, 0.12)',
       stroke: 'rgba(255, 255, 255, 0.3)',
@@ -329,8 +358,8 @@
     });
 
     const text = createSVGElement('text', {
-      x: CENTER,
-      y: CENTER,
+      x: center,
+      y: center,
       'text-anchor': 'middle',
       'dominant-baseline': 'middle',
       'font-size': 36,
@@ -363,7 +392,7 @@
       Backspace: 'Backspace',
       Delete: 'Delete',
     };
-    let key = keyMap[event.key] || event.key;
+    let key = keyMap[event.key] || (event.code === 'Space' ? 'Space' : event.key);
     if (key.length === 1) {
       if (!/^[A-Za-z0-9]$/.test(key)) return null;
       key = key.toUpperCase();
@@ -450,11 +479,91 @@
     });
   }
 
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function hslToHex(h, s, l) {
+    const hue = (((h % 360) + 360) % 360) / 360;
+    const sat = clamp(s / 100, 0, 1);
+    const light = clamp(l / 100, 0, 1);
+    const chroma = (1 - Math.abs(2 * light - 1)) * sat;
+    const x = chroma * (1 - Math.abs(((hue * 6) % 2) - 1));
+    const m = light - chroma / 2;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hue < 1 / 6) {
+      r = chroma;
+      g = x;
+    } else if (hue < 2 / 6) {
+      r = x;
+      g = chroma;
+    } else if (hue < 3 / 6) {
+      g = chroma;
+      b = x;
+    } else if (hue < 4 / 6) {
+      g = x;
+      b = chroma;
+    } else if (hue < 5 / 6) {
+      r = x;
+      b = chroma;
+    } else {
+      r = chroma;
+      b = x;
+    }
+    const toHex = (value) => Math.round((value + m) * 255).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+  }
+
+  function hexToHsl(hex) {
+    const value = (hex || '').replace('#', '');
+    const r = parseInt(value.slice(0, 2), 16) / 255;
+    const g = parseInt(value.slice(2, 4), 16) / 255;
+    const b = parseInt(value.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+    if (delta !== 0) {
+      s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+      if (max === r) h = ((g - b) / delta + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / delta + 2) / 6;
+      else h = ((r - g) / delta + 4) / 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+  }
+
+  function normalizeHex(value) {
+    const match = String(value || '').trim().match(/^#?([0-9a-fA-F]{6})$/);
+    return match ? `#${match[1].toUpperCase()}` : null;
+  }
+
+  function updateColorPreview() {
+    const hex = hslToHex(Number(colorHue.value), Number(colorSaturation.value), Number(colorLightness.value));
+    colorPreview.style.background = hex;
+    colorHex.value = hex;
+    return hex;
+  }
+
+  function syncColorPicker(hex) {
+    const normalized = normalizeHex(hex) || DEFAULT_COLORS[0];
+    const { h, s, l } = hexToHsl(normalized);
+    colorHue.value = h;
+    colorSaturation.value = s;
+    colorLightness.value = l;
+    colorPreview.style.background = normalized;
+    colorHex.value = normalized;
+  }
+
   function applyTransform() {
     const scale = layout ? layout.fitScale : 1;
+    const center = viewSize / 2;
     spinGroup.setAttribute(
       'transform',
-      `translate(${CENTER}, ${CENTER}) rotate(${rotationOffset}) scale(${scale}) translate(${-CENTER}, ${-CENTER})`,
+      `translate(${center}, ${center}) rotate(${rotationOffset}) scale(${scale}) translate(${-center}, ${-center})`,
     );
   }
 
@@ -462,7 +571,7 @@
     const opacity = settings.ringOpacity ?? 0.45;
     const strokeWidth = settings.ringStrokeWidth ?? 2;
     const colors = settings.ringColors || DEFAULT_COLORS;
-    layout = layoutApps(visible, colors);
+    layout = layoutApps(visible, colors, 0, viewSize);
     renderRings(layout.rings, opacity, strokeWidth);
     renderIcons(layout.icons, layout);
     renderCenter();
@@ -473,7 +582,7 @@
   function updateIconTransforms() {
     if (!layout) return;
     const transform = `rotate(${-rotationOffset} 0 0)`;
-    iconsGroup.querySelectorAll('.app-icon-body').forEach((body) => {
+    iconBodies.forEach((body) => {
       body.setAttribute('transform', transform);
     });
   }
@@ -494,18 +603,20 @@
     const next = excluded.includes(app.name)
       ? excluded.filter((name) => name !== app.name)
       : [...excluded, app.name];
-    window.donut.setSettings({ excludedApps: next }).then((updated) => {
+    window.donut.setSettings({ excludedApps: next }).then(async (updated) => {
       settings = updated;
       renderHiddenApps();
+      await syncViewSize();
       renderAll();
     });
   }
 
   function unhideApp(name) {
     const excluded = (settings.excludedApps || []).filter((appName) => appName !== name);
-    window.donut.setSettings({ excludedApps: excluded }).then((updated) => {
+    window.donut.setSettings({ excludedApps: excluded }).then(async (updated) => {
       settings = updated;
       renderHiddenApps();
+      await syncViewSize();
       renderAll();
     });
   }
@@ -547,7 +658,20 @@
   }
 
   function updateSearchVisibility() {
-    searchInput.classList.toggle('hidden', !(settings.showSearchBar ?? true));
+    searchInput.classList.toggle('hidden', !searchVisible);
+  }
+
+  function toggleSearchVisibility() {
+    searchVisible = !searchVisible;
+    updateSearchVisibility();
+    if (searchVisible) {
+      searchInput.focus();
+      return;
+    }
+    searchInput.value = '';
+    searchQuery = '';
+    selectedIndex = 0;
+    renderAll();
   }
 
   function renderAll() {
@@ -558,6 +682,7 @@
       donutSvg.classList.add('hidden');
       ringsGroup.innerHTML = '';
       iconsGroup.innerHTML = '';
+      iconBodies = [];
       updateSearchVisibility();
       stopRotation();
       return;
@@ -622,7 +747,7 @@
     if (speed <= 0) return;
     let last = performance.now();
     function frame(now) {
-      const dt = now - last;
+      const dt = Math.min(now - last, 50);
       last = now;
       rotationOffset = (rotationOffset + dt * 0.006 * speed) % 360;
       applyTransform();
@@ -671,7 +796,6 @@
       shortcut: shortcutInput.value,
       rotationSpeed: parseFloat(rotationSpeedInput.value),
       iconScale: parseFloat(iconScaleInput.value),
-      showSearchBar: searchToggleInput.checked,
       sortMode: sortInput.value,
       centerIconPath: settings.centerIconPath || '',
       centerIconSize: parseFloat(centerSizeInput.value),
@@ -737,14 +861,28 @@
     });
   });
 
-  colorPicker.addEventListener('input', () => {
-    addRingColor(colorPicker.value);
+  [colorHue, colorSaturation, colorLightness].forEach((input) => {
+    input.addEventListener('input', updateColorPreview);
+    input.addEventListener('change', () => {
+      addRingColor(updateColorPreview());
+    });
+  });
+
+  colorHex.addEventListener('change', () => {
+    const hex = normalizeHex(colorHex.value);
+    if (hex) {
+      syncColorPicker(hex);
+      addRingColor(hex);
+    } else {
+      colorHex.value = updateColorPreview();
+    }
   });
 
   unhideAllBtn.addEventListener('click', () => {
-    window.donut.setSettings({ excludedApps: [] }).then((updated) => {
+    window.donut.setSettings({ excludedApps: [] }).then(async (updated) => {
       settings = updated;
       renderHiddenApps();
+      await syncViewSize();
       renderAll();
     });
   });
@@ -798,12 +936,22 @@
         window.donut.hideWindow();
         break;
     }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      toggleSearchVisibility();
+    }
   });
 
   searchInput.addEventListener('input', () => {
     searchQuery = searchInput.value;
     selectedIndex = 0;
-    renderAll();
+    if (searchDebounceId) {
+      clearTimeout(searchDebounceId);
+    }
+    searchDebounceId = setTimeout(() => {
+      searchDebounceId = null;
+      renderAll();
+    }, 80);
   });
 
   iconsGroup.addEventListener('mouseover', (e) => {
@@ -828,7 +976,7 @@
   });
 
   window.donut.onShortcutError((shortcut) => {
-    lastShortcutError = `快捷键 ${shortcut} 注册失败，可能已被其他应用占用`;
+    lastShortcutError = `快捷键 ${shortcut} 注册失败，可能被系统、输入法或其他应用占用；可尝试 Option+Shift+Space 或 Command+Option+Space`;
     renderShortcutError();
   });
 
@@ -842,27 +990,58 @@
     settings = await window.donut.getSettings();
     renderHiddenApps();
     ringColorsList = settings.ringColors && settings.ringColors.length ? settings.ringColors.slice() : [...DEFAULT_COLORS];
+    syncColorPicker(ringColorsList[ringColorsList.length - 1] || DEFAULT_COLORS[0]);
     centerSizeInput.value = settings.centerIconSize ?? 56;
     iconScaleInput.value = settings.iconScale ?? 1.25;
     renderColorChips();
     renderScanPaths();
     applyIconScale();
     updateSliderLabels();
-    await loadApps();
+    if (initialLoadPromise) {
+      await initialLoadPromise;
+    }
     searchInput.value = '';
     searchQuery = '';
     selectedIndex = 0;
+    searchVisible = false;
     updateSearchVisibility();
-    if (settings.showSearchBar ?? true) {
-      searchInput.focus();
-    }
+    await syncViewSize();
+    renderAll();
     syncRotation();
   });
 
-  async function init() {
-    await loadSettings();
-    await loadApps();
-    syncRotation();
+  window.donut.onHide(() => {
+    stopRotation();
+    if (searchDebounceId) {
+      clearTimeout(searchDebounceId);
+      searchDebounceId = null;
+    }
+    hoveredIcons = 0;
+    ringsGroup.innerHTML = '';
+    iconsGroup.innerHTML = '';
+    centerGroup.innerHTML = '';
+    iconBodies = [];
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopRotation();
+      if (searchDebounceId) {
+        clearTimeout(searchDebounceId);
+        searchDebounceId = null;
+      }
+      hoveredIcons = 0;
+    } else {
+      syncRotation();
+    }
+  });
+
+  function init() {
+    initialLoadPromise = (async () => {
+      await loadSettings();
+      await loadApps();
+      syncRotation();
+    })();
   }
 
   init();

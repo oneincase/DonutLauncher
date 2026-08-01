@@ -1,14 +1,16 @@
 {
-  "name": "donut-console",
-  "version": "1.0.0",
-  "description": "甜甜圈控制台 - macOS 圆形应用启动器",
+  "name": "DonutLauncher",
+  "version": "0.0.1",
+  "description": "甜甜圈启动台 - macOS 圆形应用启动器",
   "main": "src/main/index.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
     "reset": "electron . --reset-settings",
     "test": "node --test \"src/**/*.test.js\"",
-    "verify": "electron tools/verify-screenshot.js"
+    "verify": "electron tools/verify-screenshot.js",
+    "measure": "electron tools/measure-resources.js",
+    "build:mac": "electron-builder --mac dmg"
   },
   "keywords": [
     "electron",
@@ -17,12 +19,37 @@
     "donut"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^25.1.8"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
     "icns-lib": "^1.0.1"
+  },
+  "build": {
+    "appId": "com.donut-launcher.app",
+    "productName": "甜甜圈启动台",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "target": [
+        "dmg"
+      ]
+    },
+    "dmg": {
+      "title": "甜甜圈启动台"
+    }
   }
 }

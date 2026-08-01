@@ -1,4 +1,4 @@
-const CENTER = { x: 360, y: 360 };
+const BASE_VIEW_SIZE = 720;
 const ICON_SIZE = 48;
 const RING_GAP = 88;
 const INNER_RADIUS = 52;
@@ -28,15 +28,23 @@ function calculateRingCount(appCount) {
   return Math.max(count, 2);
 }
 
-function calculateFitScale(ringCount) {
+function calculateFitScale(ringCount, viewSize = BASE_VIEW_SIZE) {
   const outermostRadius = INNER_RADIUS + ringCount * RING_GAP;
-  const maxRadius = CENTER.x - ICON_SIZE / 2 - EDGE_MARGIN;
+  const maxRadius = viewSize / 2 - EDGE_MARGIN;
   return Math.min(1, maxRadius / (outermostRadius + ICON_SIZE / 2));
 }
 
-function layoutApps(apps, ringColors, rotationOffset = 0) {
+function calculateViewSize(appCount) {
+  const ringCount = calculateRingCount(appCount);
+  const outermostRadius = INNER_RADIUS + ringCount * RING_GAP;
+  const naturalSize = Math.ceil(2 * (outermostRadius + ICON_SIZE / 2 + EDGE_MARGIN));
+  return Math.max(BASE_VIEW_SIZE, naturalSize);
+}
+
+function layoutApps(apps, ringColors, rotationOffset = 0, viewSize = BASE_VIEW_SIZE) {
   const ringCount = calculateRingCount(apps.length);
-  const fitScale = calculateFitScale(ringCount);
+  const fitScale = calculateFitScale(ringCount, viewSize);
+  const center = viewSize / 2;
   const rings = [];
   const icons = [];
 
@@ -56,7 +64,7 @@ function layoutApps(apps, ringColors, rotationOffset = 0) {
 
     for (let i = 0; i < count; i += 1) {
       const angle = ringRotation + i * stepAngle;
-      const pos = polarToCartesian(CENTER.x, CENTER.y, radius, angle);
+      const pos = polarToCartesian(center, center, radius, angle);
       icons.push({
         app: apps[appIndex],
         x: pos.x,
@@ -71,7 +79,8 @@ function layoutApps(apps, ringColors, rotationOffset = 0) {
   return {
     rings,
     icons,
-    center: CENTER,
+    center,
+    viewSize,
     fitScale,
     iconSize: ICON_SIZE * fitScale,
     labelFontSize: Math.max(LABEL_FONT_SIZE * fitScale, 7),
@@ -79,5 +88,5 @@ function layoutApps(apps, ringColors, rotationOffset = 0) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { layoutApps, calculateRingCount, ICON_SIZE };
+  module.exports = { layoutApps, calculateRingCount, calculateViewSize, BASE_VIEW_SIZE, ICON_SIZE };
 }

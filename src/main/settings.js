@@ -9,10 +9,18 @@ function getDefaultScanPaths() {
   return ['/Applications', path.join(os.homedir(), 'Applications')];
 }
 
+function getDefaultCenterIconPath() {
+  return path.join(__dirname, '..', 'public', 'center.jpg');
+}
+
 module.exports = {
   get: (key) => store.get(key),
   set: (key, value) => store.set(key, value),
-  getAll: () => ({ ...store.store, defaultScanPaths: getDefaultScanPaths() }),
+  getAll: () => ({
+    ...store.store,
+    defaultScanPaths: getDefaultScanPaths(),
+    defaultCenterIconPath: getDefaultCenterIconPath(),
+  }),
   setAll: (partial) => {
     store.set(partial);
   },

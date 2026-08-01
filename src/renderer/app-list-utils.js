@@ -2,9 +2,11 @@ function filterApps(apps, query = '', excluded = []) {
   const q = query.trim().toLowerCase();
   const excludedSet = new Set(excluded);
   return apps.filter((app) => {
-    if (excludedSet.has(app.name)) return false;
+    const name = app.name || '';
+    const displayName = app.displayName || name;
+    if (excludedSet.has(name) || excludedSet.has(displayName)) return false;
     if (!q) return true;
-    return app.name.toLowerCase().includes(q);
+    return name.toLowerCase().includes(q) || displayName.toLowerCase().includes(q);
   });
 }
 
@@ -22,7 +24,8 @@ function sortApps(apps, mode = 'name', favorites = [], recentUsage = {}) {
       const rb = recentUsage[b.id] || 0;
       if (ra !== rb) return rb - ra;
     }
-    return a.name.localeCompare(b.name, 'zh-CN');
+    const nameOf = (app) => app.displayName || app.name;
+    return nameOf(a).localeCompare(nameOf(b), 'zh-CN');
   });
   return list;
 }

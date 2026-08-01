@@ -1,0 +1,27 @@
+{
+  "appCount": 50,
+  "scanMs": 96,
+  "coldLoadMs": 80,
+  "coldLoadMsAfterUnload": 100,
+  "warmShowToRenderMs": 27,
+  "coldShowToRenderMs": 17,
+  "shown": {
+    "rssAvg": 642198,
+    "rssPeak": 761040,
+    "cpuAvg": 3.761633628372273,
+    "samples": 8
+  },
+  "hiddenWithRenderer": {
+    "rssAvg": 742675.2,
+    "rssPeak": 743376,
+    "cpuAvg": 0.04472453651123572,
+    "samples": 10
+  },
+  "hiddenNoRenderer": {
+    "rssAvg": 268141.3333333333,
+    "rssPeak": 268160,
+    "cpuAvg": 0.03378727412724461,
+    "samples": 6
+  },
+  "createdAt": "2026-08-01T10:50:58.014Z"
+}

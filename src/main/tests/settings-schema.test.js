@@ -4,7 +4,7 @@ const { schema } = require('../settings-schema.js');
 
 test('new settings have defaults', () => {
   assert.strictEqual(schema.rotationSpeed.default, 1);
-  assert.strictEqual(schema.showSearchBar.default, true);
+  assert.strictEqual('showSearchBar' in schema, false);
   assert.deepStrictEqual(schema.favorites.default, []);
   assert.strictEqual(schema.sortMode.default, 'name');
   assert.deepStrictEqual(schema.recentUsage.default, {});

@@ -23,19 +23,26 @@ function makeIcns(chunks) {
   return Buffer.concat([header, body]);
 }
 
-test('extracts png chunk from icns', () => {
-  const result = extractBestIconBuffer(makeIcns([icnsChunk('icp5', TINY_PNG)]));
+test('extracts png chunk from icns', async () => {
+  const result = await extractBestIconBuffer(makeIcns([icnsChunk('icp5', TINY_PNG)]));
   assert.ok(result);
   assert.ok(result.equals(TINY_PNG));
 });
 
-test('prefers larger png chunks', () => {
+test('prefers larger png chunks', async () => {
   const larger = Buffer.concat([TINY_PNG, Buffer.alloc(32)]);
   const icns = makeIcns([icnsChunk('icp4', TINY_PNG), icnsChunk('icp5', larger)]);
-  assert.ok(extractBestIconBuffer(icns).equals(larger));
+  assert.ok((await extractBestIconBuffer(icns)).equals(larger));
 });
 
-test('returns null for invalid input', () => {
-  assert.strictEqual(extractBestIconBuffer(null), null);
-  assert.strictEqual(extractBestIconBuffer(Buffer.from('nope')), null);
+test('returns null for invalid input', async () => {
+  assert.strictEqual(await extractBestIconBuffer(null), null);
+  assert.strictEqual(await extractBestIconBuffer(Buffer.from('nope')), null);
+});
+
+test('converts non-png icns chunks with the converter fallback', async () => {
+  const converted = Buffer.from('converted-png');
+  const icns = makeIcns([icnsChunk('ic09', Buffer.from('jpeg2000-payload'))]);
+  const result = await extractBestIconBuffer(icns, async () => converted);
+  assert.ok(result.equals(converted));
 });

@@ -18,7 +18,7 @@
     "launcher",
     "donut"
   ],
-  "author": "",
+  "author": "oneincase <462534624@qq.com>",
   "license": "Apache-2.0",
   "devDependencies": {
     "electron": "^31.0.0",

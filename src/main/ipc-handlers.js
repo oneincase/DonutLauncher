@@ -1,3 +1,8 @@
+/**
+ * 甜甜圈启动台 (Donut Launcher)
+ * 开发人：oneincase <462534624@qq.com>
+ * 更新日期：2026-08-02
+ */
 const { ipcMain, dialog, screen } = require('electron');
 const { scanApplications } = require('./app-scanner');
 const { launchApp } = require('./app-launcher');

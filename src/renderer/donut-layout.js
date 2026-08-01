@@ -1,3 +1,8 @@
+/**
+ * 甜甜圈启动台 (Donut Launcher)
+ * 开发人：oneincase <462534624@qq.com>
+ * 更新日期：2026-08-02
+ */
 const BASE_VIEW_SIZE = 720;
 const ICON_SIZE = 48;
 const RING_GAP = 88;

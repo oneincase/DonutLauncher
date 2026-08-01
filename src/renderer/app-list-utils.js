@@ -1,3 +1,8 @@
+/**
+ * 甜甜圈启动台 (Donut Launcher)
+ * 开发人：oneincase <462534624@qq.com>
+ * 更新日期：2026-08-02
+ */
 function filterApps(apps, query = '', excluded = []) {
   const q = query.trim().toLowerCase();
   const excludedSet = new Set(excluded);

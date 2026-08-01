@@ -17,8 +17,8 @@ const schema = {
   },
   ringStrokeWidth: {
     type: 'number',
-    minimum: 0.5,
-    maximum: 6,
+    minimum: 1,
+    maximum: 50,
     default: 2,
   },
   shortcut: {
@@ -29,26 +29,27 @@ const schema = {
     type: 'string',
     default: '',
   },
+  centerIconSize: {
+    type: 'number',
+    minimum: 20,
+    maximum: 120,
+    default: 56,
+  },
   enableRotation: {
     type: 'boolean',
     default: true,
-  },
-  layoutMode: {
-    type: 'string',
-    enum: ['ring', 'grid', 'list'],
-    default: 'ring',
-  },
-  iconSize: {
-    type: 'number',
-    minimum: 32,
-    maximum: 96,
-    default: 64,
   },
   rotationSpeed: {
     type: 'number',
     minimum: 0,
     maximum: 3,
     default: 1,
+  },
+  iconScale: {
+    type: 'number',
+    minimum: 1,
+    maximum: 2.5,
+    default: 1.25,
   },
   showSearchBar: {
     type: 'boolean',

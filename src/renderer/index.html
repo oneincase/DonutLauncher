@@ -18,8 +18,6 @@
     </svg>
 
     <input id="search-input" class="search-box hidden" type="text" placeholder="搜索应用">
-    <div id="grid-view" class="layout-view hidden"></div>
-    <div id="list-view" class="layout-view hidden"></div>
 
     <div id="empty-state" class="hidden">
       <p id="empty-message">暂无应用</p>
@@ -30,72 +28,114 @@
   <div id="settings-panel" class="hidden">
     <h2>设置</h2>
     <p id="shortcut-error" class="hidden"></p>
-    <label>
-      快捷键
-      <input id="shortcut-input" type="text" value="Option+Space">
-    </label>
-    <label>
-      布局
-      <select id="layout-input">
-        <option value="ring">圆环</option>
-        <option value="grid">网格</option>
-        <option value="list">列表</option>
-      </select>
-    </label>
-    <label>
-      图标尺寸
-      <input id="icon-size-input" type="range" min="32" max="96" step="4">
-    </label>
-    <label>
-      圆环透明度
-      <input id="opacity-input" type="range" min="0" max="1" step="0.05">
-    </label>
-    <label>
-      圆环粗细
-      <input id="stroke-input" type="range" min="0.5" max="6" step="0.5">
-    </label>
-    <label>
-      旋转速度
-      <input id="rotation-speed-input" type="range" min="0" max="3" step="0.25">
-    </label>
-    <label class="checkbox">
-      <input id="rotation-input" type="checkbox">
-      开启圆环缓慢旋转
-    </label>
-    <label class="checkbox">
-      <input id="search-toggle-input" type="checkbox">
-      显示搜索框
-    </label>
-    <label>
-      排序方式
-      <select id="sort-input">
-        <option value="name">名称</option>
-        <option value="recent">最近使用</option>
-        <option value="favorites">收藏优先</option>
-      </select>
-    </label>
-    <label>
-      圆环颜色（逗号分隔）
-      <input id="colors-input" type="text">
-    </label>
-    <label>
-      扫描路径（每行一个）
-      <textarea id="paths-input" rows="3"></textarea>
-    </label>
-    <label>
-      排除应用（每行一个名称）
-      <textarea id="excluded-input" rows="3"></textarea>
-    </label>
+    <div class="settings-tabs" id="settings-tabs">
+      <button type="button" data-tab="launch" class="active">启动</button>
+      <button type="button" data-tab="appearance">外观</button>
+      <button type="button" data-tab="apps">应用</button>
+    </div>
+
+    <div class="settings-tab-pane" data-pane="launch">
+      <section class="settings-section">
+        <h3>快捷键</h3>
+        <label class="field">
+          <span>全局快捷键</span>
+          <div class="shortcut-row">
+            <input id="shortcut-input" type="text" value="Option+Space" readonly>
+            <button id="record-btn" type="button">录制</button>
+          </div>
+        </label>
+        <p id="record-hint" class="record-hint hidden">请按下新的快捷键，Esc 取消</p>
+        <h3>圆心</h3>
+        <div class="center-icon-row">
+          <button id="pick-center-btn" type="button">选择图片</button>
+          <button id="reset-center-btn" type="button" class="secondary">恢复默认</button>
+          <input id="center-icon-file" type="file" accept="image/*" class="hidden">
+        </div>
+        <label class="field">
+          <span>圆心图片大小 <em id="center-size-value">56</em></span>
+          <input id="center-size-input" type="range" min="20" max="120" step="4">
+        </label>
+      </section>
+    </div>
+
+    <div class="settings-tab-pane hidden" data-pane="appearance">
+      <section class="settings-section">
+        <div class="settings-grid">
+          <label class="field">
+            <span>圆环透明度 <em id="opacity-value">0.45</em></span>
+            <input id="opacity-input" type="range" min="0" max="1" step="0.05">
+          </label>
+          <label class="field">
+            <span>圆环粗细 <em id="stroke-value">2</em></span>
+            <input id="stroke-input" type="range" min="1" max="50" step="0.5">
+          </label>
+          <label class="field">
+            <span>旋转速度 <em id="rotation-speed-value">1</em></span>
+            <input id="rotation-speed-input" type="range" min="0" max="3" step="0.25">
+          </label>
+          <label class="field">
+            <span>选中放大 <em id="icon-scale-value">1.25</em></span>
+            <input id="icon-scale-input" type="range" min="1" max="2.5" step="0.05">
+          </label>
+        </div>
+        <div class="field">
+          <span>圆环颜色</span>
+          <div id="color-presets" class="color-presets"></div>
+          <div id="color-chips" class="color-chips"></div>
+          <input id="color-picker" type="color" value="#FF6B9D">
+        </div>
+        <div class="settings-toggles">
+          <label class="checkbox">
+            <input id="rotation-input" type="checkbox">
+            <span>开启缓慢旋转</span>
+          </label>
+          <label class="checkbox">
+            <input id="search-toggle-input" type="checkbox">
+            <span>显示搜索框</span>
+          </label>
+        </div>
+        <label class="field">
+          <span>排序方式</span>
+          <select id="sort-input">
+            <option value="name">名称</option>
+            <option value="recent">最近使用</option>
+            <option value="favorites">收藏优先</option>
+          </select>
+        </label>
+      </section>
+    </div>
+
+    <div class="settings-tab-pane hidden" data-pane="apps">
+      <section class="settings-section">
+        <label class="field">
+          <span>默认扫描路径</span>
+          <div id="default-paths-list" class="path-list"></div>
+        </label>
+        <div class="field">
+          <div class="hidden-apps-header">
+            <span>自定义扫描路径</span>
+            <button id="add-path-btn" type="button" class="small">添加路径</button>
+          </div>
+          <div id="custom-paths-list" class="path-list"></div>
+        </div>
+        <div class="field">
+          <div class="hidden-apps-header">
+            <span>已隐藏应用</span>
+            <button id="unhide-all-btn" type="button" class="small">全部取消隐藏</button>
+          </div>
+          <div id="hidden-apps-list" class="hidden-apps-list"></div>
+        </div>
+      </section>
+    </div>
+
     <div class="settings-actions">
-      <button id="refresh-btn">刷新应用</button>
+      <button id="refresh-btn" class="secondary">刷新应用</button>
       <button id="save-btn">保存</button>
-      <button id="close-btn">关闭</button>
+      <button id="close-btn" class="secondary">关闭</button>
     </div>
   </div>
 
   <script src="donut-layout.js"></script>
-  <script src="grid-layout.js"></script>
-  <script src="list-layout.js"></script>
   <script src="app-list-utils.js"></script>
   <script src="renderer.js"></script>
 </body>

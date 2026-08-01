@@ -6,7 +6,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "test": "node --test src/**/*.test.js"
+    "reset": "electron . --reset-settings",
+    "test": "node --test \"src/**/*.test.js\"",
+    "verify": "electron tools/verify-screenshot.js"
   },
   "keywords": [
     "electron",

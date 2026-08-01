@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, screen } = require('electron');
+const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const { registerIpcHandlers, refreshApps } = require('./ipc-handlers');
 const settings = require('./settings');
@@ -7,9 +7,12 @@ const { setupLogger } = require('./logger');
 const isDev = process.argv.includes('--dev');
 
 const WINDOW_SIZE = 900;
+const TRAY_ICON_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAN0lEQVR42mNgoAX4nz33PzZMkWaiDCGkGa8hxGrGagipmjEMGTWACgZQHI1USUhUScpUyUykAgA6Nte4Aty+VwAAAABJRU5ErkJggg==';
 let mainWindow = null;
 const mainWindowRef = { current: null };
 let currentShortcut = null;
+let tray = null;
 
 
 function createWindow() {
@@ -95,24 +98,67 @@ function toggleWindow() {
   }
 }
 
+function openSettings() {
+  showWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('donut:openSettings');
+  }
+}
+
+function createTray() {
+  const icon = nativeImage.createFromDataURL(TRAY_ICON_DATA_URL);
+  tray = new Tray(icon.resize({ width: 18, height: 18 }));
+  tray.setToolTip('甜甜圈控制台');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '显示/隐藏', click: () => toggleWindow() },
+    { label: '打开设置', click: () => openSettings() },
+    { type: 'separator' },
+    { label: '退出', click: () => app.quit() },
+  ]));
+  tray.on('click', () => toggleWindow());
+}
+
 function registerShortcut() {
   if (currentShortcut) {
-    globalShortcut.unregister(currentShortcut);
+    try {
+      globalShortcut.unregister(currentShortcut);
+    } catch (err) {
+      console.error(`Failed to unregister shortcut: ${currentShortcut}`, err.message);
+    }
   }
   const shortcut = settings.get('shortcut') || 'Option+Space';
   currentShortcut = shortcut;
-  const registered = globalShortcut.register(shortcut, toggleWindow);
-  if (!registered) {
-    console.error(`Failed to register global shortcut: ${shortcut}`);
-    if (mainWindowRef.current && !mainWindowRef.current.isDestroyed()) {
-      mainWindowRef.current.webContents.send('donut:shortcutError', shortcut);
+  if (!/^[\x20-\x7E]+$/.test(shortcut)) {
+    console.error(`Invalid global shortcut: ${shortcut}`);
+    sendShortcutError(shortcut);
+    return;
+  }
+  try {
+    const registered = globalShortcut.register(shortcut, toggleWindow);
+    if (!registered) {
+      console.error(`Failed to register global shortcut: ${shortcut}`);
+      sendShortcutError(shortcut);
     }
+  } catch (err) {
+    console.error(`Failed to register global shortcut: ${shortcut}`, err.message);
+    sendShortcutError(shortcut);
+  }
+}
+
+function sendShortcutError(shortcut) {
+  if (mainWindowRef.current && !mainWindowRef.current.isDestroyed()) {
+    mainWindowRef.current.webContents.send('donut:shortcutError', shortcut);
   }
 }
 
 app.whenReady().then(async () => {
   setupLogger();
+  if (process.argv.includes('--reset-settings')) {
+    settings.clear();
+    console.log('[main] Settings reset to defaults');
+  }
   createWindow();
+  createTray();
   registerIpcHandlers(mainWindowRef);
   registerShortcut();
   settings.onDidChange('shortcut', registerShortcut);
@@ -122,6 +168,10 @@ app.whenReady().then(async () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
 });
 
 app.on('window-all-closed', () => {

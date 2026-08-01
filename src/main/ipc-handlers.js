@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron');
+const { ipcMain, dialog } = require('electron');
 const { scanApplications } = require('./app-scanner');
 const { launchApp } = require('./app-launcher');
 const settings = require('./settings');
@@ -50,6 +50,13 @@ function registerIpcHandlers(mainWindowRef) {
       mainWindowRef.current.hide();
     }
     return { success: true };
+  });
+
+  ipcMain.handle('donut:pickFolder', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    return result.canceled ? null : result.filePaths[0];
   });
 }
 

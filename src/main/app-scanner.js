@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const os = require('os');
 const { app, nativeImage } = require('electron');
 const settings = require('./settings');
 const { extractBestIconBuffer } = require('./icns-utils');
@@ -162,7 +163,9 @@ function* walkApps(dir) {
 }
 
 async function scanApplications() {
-  const scanPaths = settings.get('scanPaths');
+  const storedPaths = settings.get('scanPaths') || [];
+  const defaultPaths = ['/Applications', path.join(os.homedir(), 'Applications')];
+  const scanPaths = [...new Set([...defaultPaths, ...storedPaths])];
   const seen = new Set();
   const apps = [];
 

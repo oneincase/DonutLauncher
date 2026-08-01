@@ -5,31 +5,46 @@
   const spinGroup = document.getElementById('spin-group');
   const centerGroup = document.getElementById('center');
   const searchInput = document.getElementById('search-input');
-  const gridView = document.getElementById('grid-view');
-  const listView = document.getElementById('list-view');
   const emptyState = document.getElementById('empty-state');
   const emptyMessage = document.getElementById('empty-message');
   const settingsPanel = document.getElementById('settings-panel');
+  const settingsTabs = document.getElementById('settings-tabs');
   const closeSettingsBtn = document.getElementById('close-btn');
   const saveSettingsBtn = document.getElementById('save-btn');
   const refreshBtn = document.getElementById('refresh-btn');
   const openSettingsBtn = document.getElementById('open-settings');
   const shortcutErrorEl = document.getElementById('shortcut-error');
   const shortcutInput = document.getElementById('shortcut-input');
-  const layoutInput = document.getElementById('layout-input');
-  const iconSizeInput = document.getElementById('icon-size-input');
+  const recordBtn = document.getElementById('record-btn');
+  const recordHint = document.getElementById('record-hint');
+  const pickCenterBtn = document.getElementById('pick-center-btn');
+  const resetCenterBtn = document.getElementById('reset-center-btn');
+  const centerIconFile = document.getElementById('center-icon-file');
+  const centerSizeInput = document.getElementById('center-size-input');
+  const centerSizeValue = document.getElementById('center-size-value');
   const opacityInput = document.getElementById('opacity-input');
+  const opacityValue = document.getElementById('opacity-value');
   const strokeInput = document.getElementById('stroke-input');
+  const strokeValue = document.getElementById('stroke-value');
   const rotationSpeedInput = document.getElementById('rotation-speed-input');
+  const rotationSpeedValue = document.getElementById('rotation-speed-value');
   const rotationInput = document.getElementById('rotation-input');
   const searchToggleInput = document.getElementById('search-toggle-input');
   const sortInput = document.getElementById('sort-input');
-  const colorsInput = document.getElementById('colors-input');
-  const pathsInput = document.getElementById('paths-input');
-  const excludedInput = document.getElementById('excluded-input');
+  const colorPresets = document.getElementById('color-presets');
+  const colorChips = document.getElementById('color-chips');
+  const colorPicker = document.getElementById('color-picker');
+  const iconScaleInput = document.getElementById('icon-scale-input');
+  const iconScaleValue = document.getElementById('icon-scale-value');
+  const defaultPathsList = document.getElementById('default-paths-list');
+  const customPathsList = document.getElementById('custom-paths-list');
+  const addPathBtn = document.getElementById('add-path-btn');
+  const hiddenAppsList = document.getElementById('hidden-apps-list');
+  const unhideAllBtn = document.getElementById('unhide-all-btn');
 
   const CENTER = 360;
   const DEFAULT_COLORS = ['#FF6B9D', '#4ECDC4', '#FFE66D'];
+  const COLOR_PRESETS = ['#FF6B9D', '#4ECDC4', '#FFE66D', '#4C9AFF', '#51CF66', '#FF922B', '#AE7FF0', '#FFFFFF'];
 
   let apps = [];
   let settings = {};
@@ -38,8 +53,11 @@
   let selectedIndex = 0;
   let rotationOffset = 0;
   let rotationId = null;
+  let hoveredIcons = 0;
   let isSettingsOpen = false;
   let lastShortcutError = '';
+  let ringColorsList = [];
+  let recordingShortcut = false;
 
   function getVisibleApps() {
     const filtered = filterApps(apps, searchQuery, settings.excludedApps || []);
@@ -49,17 +67,88 @@
   async function loadSettings() {
     settings = await window.donut.getSettings();
     shortcutInput.value = settings.shortcut || 'Option+Space';
-    layoutInput.value = settings.layoutMode || 'ring';
-    iconSizeInput.value = settings.iconSize ?? 64;
     opacityInput.value = settings.ringOpacity ?? 0.45;
     strokeInput.value = settings.ringStrokeWidth ?? 2;
     rotationSpeedInput.value = settings.rotationSpeed ?? 1;
     rotationInput.checked = settings.enableRotation ?? true;
     searchToggleInput.checked = settings.showSearchBar ?? true;
     sortInput.value = settings.sortMode || 'name';
-    colorsInput.value = (settings.ringColors || DEFAULT_COLORS).join(', ');
-    pathsInput.value = (settings.scanPaths || []).join('\n');
-    excludedInput.value = (settings.excludedApps || []).join('\n');
+    ringColorsList = settings.ringColors && settings.ringColors.length ? settings.ringColors.slice() : [...DEFAULT_COLORS];
+    centerSizeInput.value = settings.centerIconSize ?? 56;
+    iconScaleInput.value = settings.iconScale ?? 1.25;
+    renderHiddenApps();
+    renderColorPresets();
+    renderColorChips();
+    renderScanPaths();
+    applyIconScale();
+    updateSliderLabels();
+  }
+
+  function updateSliderLabels() {
+    opacityValue.textContent = Number(opacityInput.value).toFixed(2);
+    strokeValue.textContent = strokeInput.value;
+    rotationSpeedValue.textContent = rotationSpeedInput.value;
+    centerSizeValue.textContent = centerSizeInput.value;
+    iconScaleValue.textContent = Number(iconScaleInput.value).toFixed(2);
+  }
+
+  function applyIconScale() {
+    donutSvg.style.setProperty('--icon-scale', String(settings.iconScale ?? 1.25));
+  }
+
+  function renderScanPaths() {
+    const defaults = settings.defaultScanPaths || [];
+    const stored = settings.scanPaths || [];
+    const custom = stored.filter((p) => !defaults.includes(p));
+    defaultPathsList.innerHTML = '';
+    defaults.forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'path-row';
+      const label = document.createElement('span');
+      label.textContent = p;
+      row.appendChild(label);
+      defaultPathsList.appendChild(row);
+    });
+    customPathsList.innerHTML = '';
+    custom.forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'path-row';
+      const label = document.createElement('span');
+      label.textContent = p;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = '移除';
+      button.addEventListener('click', () => {
+        removeScanPath(p);
+      });
+      row.appendChild(label);
+      row.appendChild(button);
+      customPathsList.appendChild(row);
+    });
+  }
+
+  async function saveScanPaths(customPaths) {
+    const defaults = settings.defaultScanPaths || [];
+    const updated = await window.donut.setSettings({ scanPaths: [...defaults, ...customPaths] });
+    settings = updated;
+    renderScanPaths();
+  }
+
+  async function addScanPath() {
+    const folder = await window.donut.pickFolder();
+    if (!folder) return;
+    const defaults = settings.defaultScanPaths || [];
+    const custom = (settings.scanPaths || []).filter((p) => !defaults.includes(p));
+    if (!custom.includes(folder)) {
+      custom.push(folder);
+      await saveScanPaths(custom);
+    }
+  }
+
+  function removeScanPath(folder) {
+    const defaults = settings.defaultScanPaths || [];
+    const custom = (settings.scanPaths || []).filter((p) => !defaults.includes(p) && p !== folder);
+    saveScanPaths(custom);
   }
 
   async function loadApps() {
@@ -96,9 +185,11 @@
 
   function renderIcons(icons, renderLayout) {
     iconsGroup.innerHTML = '';
+    hoveredIcons = 0;
     const iconSize = renderLayout.iconSize;
     const half = iconSize / 2;
     const labelFontSize = renderLayout.labelFontSize;
+    const favorites = settings.favorites || [];
 
     icons.forEach((item, index) => {
       const g = createSVGElement('g', {
@@ -106,6 +197,7 @@
         transform: `translate(${item.x}, ${item.y})`,
       });
       g.dataset.index = index;
+      const body = createSVGElement('g', { class: 'app-icon-body' });
 
       if (item.app.iconDataUrl) {
         const image = createSVGElement('image', {
@@ -117,7 +209,7 @@
           preserveAspectRatio: 'xMidYMid slice',
         });
         image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', item.app.iconDataUrl);
-        g.appendChild(image);
+        body.appendChild(image);
       } else {
         const circle = createSVGElement('circle', {
           cx: 0,
@@ -136,8 +228,8 @@
         });
         letter.textContent = (item.app.name || '?').charAt(0).toUpperCase();
         letter.style.fontSize = `${Math.max(labelFontSize + 2, 9)}px`;
-        g.appendChild(circle);
-        g.appendChild(letter);
+        body.appendChild(circle);
+        body.appendChild(letter);
       }
 
       const label = createSVGElement('text', {
@@ -146,8 +238,39 @@
       });
       label.textContent = item.app.name;
       label.style.fontSize = `${labelFontSize}px`;
+      body.appendChild(label);
 
-      g.appendChild(label);
+      const star = createSVGElement('text', {
+        x: half - 1,
+        y: -half + 1,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle',
+        class: favorites.includes(item.app.id) ? 'app-star active' : 'app-star',
+      });
+      star.textContent = '★';
+      star.style.fontSize = `${Math.max(12 * (iconSize / 48), 10)}px`;
+      star.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleFavorite(item.app);
+      });
+      body.appendChild(star);
+
+      const hideBtn = createSVGElement('text', {
+        x: -half + 1,
+        y: -half + 1,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle',
+        class: 'app-hide',
+      });
+      hideBtn.textContent = '×';
+      hideBtn.style.fontSize = `${Math.max(14 * (iconSize / 48), 12)}px`;
+      hideBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleHide(item.app);
+      });
+      body.appendChild(hideBtn);
+
+      g.appendChild(body);
       g.addEventListener('click', () => {
         window.donut.launchApp(item.app.path);
       });
@@ -157,6 +280,45 @@
 
   function renderCenter() {
     centerGroup.innerHTML = '';
+    const g = createSVGElement('g', { id: 'center-icon' });
+    const size = settings.centerIconSize ?? 56;
+    if (settings.centerIconPath) {
+      const inner = createSVGElement('g', { transform: `translate(${CENTER}, ${CENTER})` });
+      const defs = createSVGElement('defs', {});
+      const clip = createSVGElement('clipPath', { id: 'center-clip' });
+      clip.appendChild(createSVGElement('circle', { cx: 0, cy: 0, r: size / 2 }));
+      defs.appendChild(clip);
+      inner.appendChild(defs);
+
+      const image = createSVGElement('image', {
+        x: -size / 2,
+        y: -size / 2,
+        width: size,
+        height: size,
+        href: settings.centerIconPath,
+        preserveAspectRatio: 'xMidYMid slice',
+        'clip-path': 'url(#center-clip)',
+      });
+      image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', settings.centerIconPath);
+      inner.appendChild(image);
+
+      const ring = createSVGElement('circle', {
+        cx: 0,
+        cy: 0,
+        r: size / 2,
+        fill: 'none',
+        stroke: 'rgba(255, 255, 255, 0.35)',
+        'stroke-width': 2,
+      });
+      inner.appendChild(ring);
+      g.appendChild(inner);
+      g.addEventListener('click', () => {
+        toggleSettings();
+      });
+      centerGroup.appendChild(g);
+      return;
+    }
+
     const circle = createSVGElement('circle', {
       cx: CENTER,
       cy: CENTER,
@@ -176,13 +338,116 @@
     });
     text.textContent = '🍩';
 
-    const g = createSVGElement('g', { id: 'center-icon' });
     g.appendChild(circle);
     g.appendChild(text);
     g.addEventListener('click', () => {
       toggleSettings();
     });
     centerGroup.appendChild(g);
+  }
+
+  function buildAccelerator(event) {
+    const parts = [];
+    if (event.ctrlKey) parts.push('Control');
+    if (event.metaKey) parts.push('Command');
+    if (event.altKey) parts.push('Option');
+    if (event.shiftKey) parts.push('Shift');
+    const keyMap = {
+      ' ': 'Space',
+      ArrowUp: 'Up',
+      ArrowDown: 'Down',
+      ArrowLeft: 'Left',
+      ArrowRight: 'Right',
+      Enter: 'Return',
+      Tab: 'Tab',
+      Backspace: 'Backspace',
+      Delete: 'Delete',
+    };
+    let key = keyMap[event.key] || event.key;
+    if (key.length === 1) {
+      if (!/^[A-Za-z0-9]$/.test(key)) return null;
+      key = key.toUpperCase();
+    }
+    if (['Meta', 'Control', 'Alt', 'Shift'].includes(key)) return null;
+    parts.push(key);
+    return parts.join('+');
+  }
+
+  function cancelRecording() {
+    recordingShortcut = false;
+    recordBtn.textContent = '录制';
+    recordBtn.classList.remove('active');
+    recordHint.textContent = '请按下新的快捷键，Esc 取消';
+    recordHint.classList.add('hidden');
+  }
+
+  function renderColorPresets() {
+    colorPresets.innerHTML = '';
+    COLOR_PRESETS.forEach((color) => {
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'color-swatch';
+      swatch.style.background = color;
+      swatch.title = color;
+      swatch.addEventListener('click', () => {
+        addRingColor(color);
+      });
+      colorPresets.appendChild(swatch);
+    });
+  }
+
+  function addRingColor(color) {
+    if (!ringColorsList.includes(color)) {
+      ringColorsList.push(color);
+    }
+    renderColorChips();
+  }
+
+  function removeRingColor(index) {
+    ringColorsList.splice(index, 1);
+    renderColorChips();
+  }
+
+  function renderColorChips() {
+    colorChips.innerHTML = '';
+    ringColorsList.forEach((color, index) => {
+      const chip = document.createElement('div');
+      chip.className = 'color-chip';
+      chip.draggable = true;
+      chip.dataset.index = index;
+      chip.style.background = color;
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'color-chip-remove';
+      remove.textContent = '×';
+      remove.addEventListener('click', () => {
+        removeRingColor(index);
+      });
+      chip.appendChild(remove);
+
+      chip.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('text/plain', String(index));
+        chip.classList.add('dragging');
+      });
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('dragging');
+      });
+      chip.addEventListener('dragover', (event) => {
+        event.preventDefault();
+      });
+      chip.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const from = Number(event.dataTransfer.getData('text/plain'));
+        if (Number.isNaN(from) || from === index) return;
+        const [moved] = ringColorsList.splice(from, 1);
+        const insertAt = from < index ? index - 1 : index;
+        ringColorsList.splice(insertAt, 0, moved);
+        renderColorChips();
+      });
+
+      colorChips.appendChild(chip);
+    });
   }
 
   function applyTransform() {
@@ -202,6 +467,15 @@
     renderIcons(layout.icons, layout);
     renderCenter();
     applyTransform();
+    updateIconTransforms();
+  }
+
+  function updateIconTransforms() {
+    if (!layout) return;
+    const transform = `rotate(${-rotationOffset} 0 0)`;
+    iconsGroup.querySelectorAll('.app-icon-body').forEach((body) => {
+      body.setAttribute('transform', transform);
+    });
   }
 
   function toggleFavorite(app) {
@@ -215,62 +489,51 @@
     });
   }
 
-  function createAppItem(app, index, mode) {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = mode === 'grid' ? 'app-item grid-item' : 'app-item list-item';
-    item.dataset.index = index;
-    item.addEventListener('click', () => {
-      window.donut.launchApp(app.path);
+  function toggleHide(app) {
+    const excluded = settings.excludedApps || [];
+    const next = excluded.includes(app.name)
+      ? excluded.filter((name) => name !== app.name)
+      : [...excluded, app.name];
+    window.donut.setSettings({ excludedApps: next }).then((updated) => {
+      settings = updated;
+      renderHiddenApps();
+      renderAll();
     });
+  }
 
-    const icon = document.createElement('span');
-    icon.className = 'app-item-icon';
-    if (app.iconDataUrl) {
-      const img = document.createElement('img');
-      img.src = app.iconDataUrl;
-      img.alt = '';
-      icon.appendChild(img);
-    } else {
-      const fallback = document.createElement('span');
-      fallback.className = 'app-item-fallback';
-      fallback.textContent = (app.name || '?').charAt(0).toUpperCase();
-      icon.appendChild(fallback);
+  function unhideApp(name) {
+    const excluded = (settings.excludedApps || []).filter((appName) => appName !== name);
+    window.donut.setSettings({ excludedApps: excluded }).then((updated) => {
+      settings = updated;
+      renderHiddenApps();
+      renderAll();
+    });
+  }
+
+  function renderHiddenApps() {
+    hiddenAppsList.innerHTML = '';
+    const excluded = settings.excludedApps || [];
+    if (excluded.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'hidden-apps-empty';
+      empty.textContent = '无';
+      hiddenAppsList.appendChild(empty);
+      return;
     }
-    item.appendChild(icon);
-
-    const name = document.createElement('span');
-    name.className = 'app-item-name';
-    name.textContent = app.name;
-    item.appendChild(name);
-
-    const star = document.createElement('span');
-    star.className = (settings.favorites || []).includes(app.id) ? 'app-item-star active' : 'app-item-star';
-    star.textContent = '★';
-    star.title = '收藏';
-    star.addEventListener('click', (event) => {
-      event.stopPropagation();
-      toggleFavorite(app);
-    });
-    item.appendChild(star);
-    return item;
-  }
-
-  function renderGrid(visible) {
-    gridView.innerHTML = '';
-    const grid = layoutGrid(visible, { iconSize: settings.iconSize || 64 });
-    gridView.style.gridTemplateColumns = `repeat(${grid.cols}, minmax(0, 1fr))`;
-    gridView.style.setProperty('--item-icon-size', `${settings.iconSize || 64}px`);
-    visible.forEach((app, index) => {
-      gridView.appendChild(createAppItem(app, index, 'grid'));
-    });
-  }
-
-  function renderList(visible) {
-    listView.innerHTML = '';
-    listView.style.setProperty('--item-icon-size', `${settings.iconSize || 48}px`);
-    visible.forEach((app, index) => {
-      listView.appendChild(createAppItem(app, index, 'list'));
+    excluded.forEach((name) => {
+      const row = document.createElement('div');
+      row.className = 'hidden-app-row';
+      const label = document.createElement('span');
+      label.textContent = name;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = '取消隐藏';
+      button.addEventListener('click', () => {
+        unhideApp(name);
+      });
+      row.appendChild(label);
+      row.appendChild(button);
+      hiddenAppsList.appendChild(row);
     });
   }
 
@@ -283,35 +546,27 @@
     }
   }
 
+  function updateSearchVisibility() {
+    searchInput.classList.toggle('hidden', !(settings.showSearchBar ?? true));
+  }
+
   function renderAll() {
     const visible = getVisibleApps();
     if (visible.length === 0) {
       emptyMessage.textContent = apps.length === 0 ? '暂无应用' : '没有匹配的应用';
       emptyState.classList.remove('hidden');
       donutSvg.classList.add('hidden');
-      gridView.classList.add('hidden');
-      listView.classList.add('hidden');
       ringsGroup.innerHTML = '';
       iconsGroup.innerHTML = '';
-      searchInput.classList.toggle('hidden', !(settings.showSearchBar ?? true));
+      updateSearchVisibility();
       stopRotation();
       return;
     }
 
     emptyState.classList.add('hidden');
-    const mode = settings.layoutMode || 'ring';
-    donutSvg.classList.toggle('hidden', mode !== 'ring');
-    gridView.classList.toggle('hidden', mode !== 'grid');
-    listView.classList.toggle('hidden', mode !== 'list');
-    searchInput.classList.toggle('hidden', !(settings.showSearchBar ?? true));
-
-    if (mode === 'grid') {
-      renderGrid(visible);
-    } else if (mode === 'list') {
-      renderList(visible);
-    } else {
-      renderRing(visible);
-    }
+    donutSvg.classList.remove('hidden');
+    updateSearchVisibility();
+    renderRing(visible);
     updateSelection();
     syncRotation();
   }
@@ -320,34 +575,15 @@
     const visible = getVisibleApps();
     if (visible.length === 0) return;
     selectedIndex = clampIndex(selectedIndex, visible.length);
-    document.querySelectorAll('.app-item').forEach((el) => {
-      el.classList.toggle('selected', Number(el.dataset.index) === selectedIndex);
-    });
     document.querySelectorAll('#icons .app-icon').forEach((el) => {
       el.classList.toggle('selected', Number(el.dataset.index) === selectedIndex);
     });
-    const selectedEl = document.querySelector(`.app-item[data-index="${selectedIndex}"]`);
-    if (selectedEl && selectedEl.scrollIntoView) {
-      selectedEl.scrollIntoView({ block: 'nearest' });
-    }
   }
 
   function moveSelection(dx, dy) {
     const visible = getVisibleApps();
     if (visible.length === 0) return;
-    const mode = settings.layoutMode || 'ring';
-    if (mode === 'grid') {
-      const cols = layoutGrid(visible, { iconSize: settings.iconSize || 64 }).cols;
-      const row = Math.floor(selectedIndex / cols);
-      const col = selectedIndex % cols;
-      const nextCol = (col + dx + cols) % cols;
-      const nextRow = Math.min(Math.max(row + dy, 0), Math.ceil(visible.length / cols) - 1);
-      let next = nextRow * cols + nextCol;
-      if (next >= visible.length) next = Math.max(0, visible.length - 1);
-      selectedIndex = next;
-    } else {
-      selectedIndex = clampIndex(selectedIndex + (dy !== 0 ? dy : dx), visible.length);
-    }
+    selectedIndex = clampIndex(selectedIndex + (dy !== 0 ? dy : dx), visible.length);
     updateSelection();
   }
 
@@ -360,11 +596,23 @@
   }
 
   function syncRotation() {
-    const mode = settings.layoutMode || 'ring';
-    if (mode === 'ring' && (settings.enableRotation ?? true)) {
+    if ((settings.enableRotation ?? true) && hoveredIcons === 0) {
       startRotation();
     } else {
       stopRotation();
+    }
+  }
+
+  function pauseRotation() {
+    if (rotationId) {
+      cancelAnimationFrame(rotationId);
+      rotationId = null;
+    }
+  }
+
+  function resumeRotation() {
+    if ((settings.enableRotation ?? true) && hoveredIcons === 0) {
+      startRotation();
     }
   }
 
@@ -378,6 +626,7 @@
       last = now;
       rotationOffset = (rotationOffset + dt * 0.006 * speed) % 360;
       applyTransform();
+      updateIconTransforms();
       rotationId = requestAnimationFrame(frame);
     }
     rotationId = requestAnimationFrame(frame);
@@ -407,27 +656,30 @@
     openSettingsBtn.addEventListener('click', toggleSettings);
   }
 
+  [opacityInput, strokeInput, rotationSpeedInput, centerSizeInput, iconScaleInput].forEach((input) => {
+    input.addEventListener('input', updateSliderLabels);
+  });
+
   saveSettingsBtn.addEventListener('click', async () => {
-    const colors = colorsInput.value.split(',').map((s) => s.trim()).filter(Boolean);
-    const paths = pathsInput.value.split('\n').map((s) => s.trim()).filter(Boolean);
-    const excluded = excludedInput.value.split('\n').map((s) => s.trim()).filter(Boolean);
     lastShortcutError = '';
     renderShortcutError();
     await window.donut.setSettings({
-      ringColors: colors,
+      ringColors: ringColorsList,
       ringOpacity: parseFloat(opacityInput.value),
       ringStrokeWidth: parseFloat(strokeInput.value),
-      scanPaths: paths,
       enableRotation: rotationInput.checked,
       shortcut: shortcutInput.value,
-      layoutMode: layoutInput.value,
-      iconSize: parseFloat(iconSizeInput.value),
       rotationSpeed: parseFloat(rotationSpeedInput.value),
+      iconScale: parseFloat(iconScaleInput.value),
       showSearchBar: searchToggleInput.checked,
       sortMode: sortInput.value,
-      excludedApps: excluded,
+      centerIconPath: settings.centerIconPath || '',
+      centerIconSize: parseFloat(centerSizeInput.value),
     });
     settings = await window.donut.getSettings();
+    renderHiddenApps();
+    renderScanPaths();
+    applyIconScale();
     toggleSettings();
     await window.donut.refreshApps();
     await loadApps();
@@ -438,33 +690,102 @@
     await loadApps();
   });
 
+  addPathBtn.addEventListener('click', () => {
+    addScanPath();
+  });
+
+  settingsTabs.addEventListener('click', (event) => {
+    const btn = event.target.closest('button[data-tab]');
+    if (!btn) return;
+    settingsTabs.querySelectorAll('button').forEach((tabBtn) => {
+      tabBtn.classList.toggle('active', tabBtn === btn);
+    });
+    settingsPanel.querySelectorAll('.settings-tab-pane').forEach((pane) => {
+      pane.classList.toggle('hidden', pane.dataset.pane !== btn.dataset.tab);
+    });
+  });
+
+  recordBtn.addEventListener('click', () => {
+    recordingShortcut = !recordingShortcut;
+    recordBtn.textContent = recordingShortcut ? '取消' : '录制';
+    recordBtn.classList.toggle('active', recordingShortcut);
+    recordHint.textContent = '请按下新的快捷键，Esc 取消';
+    recordHint.classList.toggle('hidden', !recordingShortcut);
+  });
+
+  pickCenterBtn.addEventListener('click', () => {
+    centerIconFile.click();
+  });
+
+  centerIconFile.addEventListener('change', () => {
+    const file = centerIconFile.files && centerIconFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      window.donut.setSettings({ centerIconPath: reader.result }).then((updated) => {
+        settings = updated;
+        renderCenter();
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+
+  resetCenterBtn.addEventListener('click', () => {
+    window.donut.setSettings({ centerIconPath: '' }).then((updated) => {
+      settings = updated;
+      renderCenter();
+    });
+  });
+
+  colorPicker.addEventListener('input', () => {
+    addRingColor(colorPicker.value);
+  });
+
+  unhideAllBtn.addEventListener('click', () => {
+    window.donut.setSettings({ excludedApps: [] }).then((updated) => {
+      settings = updated;
+      renderHiddenApps();
+      renderAll();
+    });
+  });
+
   document.addEventListener('keydown', (e) => {
+    if (recordingShortcut) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') {
+        cancelRecording();
+        return;
+      }
+      const accelerator = buildAccelerator(e);
+      if (!accelerator) {
+        if (e.key !== 'Meta' && e.key !== 'Control' && e.key !== 'Alt' && e.key !== 'Shift') {
+          recordHint.textContent = '该按键不支持，请使用字母、数字或功能键';
+        }
+        return;
+      }
+      shortcutInput.value = accelerator;
+      cancelRecording();
+      return;
+    }
     if (isSettingsOpen) {
       if (e.key === 'Escape') toggleSettings();
       return;
     }
     switch (e.key) {
       case 'ArrowRight':
-      case 'd':
-      case 'D':
         e.preventDefault();
         moveSelection(1, 0);
         break;
       case 'ArrowLeft':
-      case 'a':
-      case 'A':
         e.preventDefault();
         moveSelection(-1, 0);
         break;
       case 'ArrowDown':
-      case 's':
-      case 'S':
         e.preventDefault();
         moveSelection(0, 1);
         break;
       case 'ArrowUp':
-      case 'w':
-      case 'W':
         e.preventDefault();
         moveSelection(0, -1);
         break;
@@ -485,19 +806,54 @@
     renderAll();
   });
 
+  iconsGroup.addEventListener('mouseover', (e) => {
+    const icon = e.target.closest('.app-icon');
+    if (!icon || icon.dataset.hovered) return;
+    icon.dataset.hovered = '1';
+    hoveredIcons += 1;
+    if (hoveredIcons === 1) {
+      pauseRotation();
+    }
+  });
+
+  iconsGroup.addEventListener('mouseout', (e) => {
+    const icon = e.target.closest('.app-icon');
+    if (!icon || !icon.dataset.hovered) return;
+    if (e.relatedTarget && icon.contains(e.relatedTarget)) return;
+    delete icon.dataset.hovered;
+    hoveredIcons -= 1;
+    if (hoveredIcons === 0) {
+      resumeRotation();
+    }
+  });
+
   window.donut.onShortcutError((shortcut) => {
     lastShortcutError = `快捷键 ${shortcut} 注册失败，可能已被其他应用占用`;
     renderShortcutError();
   });
 
+  window.donut.onOpenSettings(() => {
+    if (!isSettingsOpen) {
+      toggleSettings();
+    }
+  });
+
   window.donut.onShow(async () => {
     settings = await window.donut.getSettings();
+    renderHiddenApps();
+    ringColorsList = settings.ringColors && settings.ringColors.length ? settings.ringColors.slice() : [...DEFAULT_COLORS];
+    centerSizeInput.value = settings.centerIconSize ?? 56;
+    iconScaleInput.value = settings.iconScale ?? 1.25;
+    renderColorChips();
+    renderScanPaths();
+    applyIconScale();
+    updateSliderLabels();
     await loadApps();
     searchInput.value = '';
     searchQuery = '';
     selectedIndex = 0;
+    updateSearchVisibility();
     if (settings.showSearchBar ?? true) {
-      searchInput.classList.remove('hidden');
       searchInput.focus();
     }
     syncRotation();

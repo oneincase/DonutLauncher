@@ -1,0 +1,164 @@
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#donut {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ring {
+  fill: none;
+  pointer-events: stroke;
+  transition: stroke-width 0.2s ease;
+}
+
+.app-icon {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.app-icon:hover image {
+  transform: scale(1.25);
+}
+
+.app-icon image {
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: transform 0.15s ease;
+}
+
+.app-label {
+  font-size: 10px;
+  fill: rgba(255, 255, 255, 0.9);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.app-icon:hover .app-label {
+  opacity: 1;
+}
+
+#center-icon {
+  cursor: pointer;
+}
+
+#empty-state {
+  position: absolute;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+#empty-state.hidden,
+#settings-panel.hidden {
+  display: none;
+}
+
+#settings-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(28, 28, 34, 0.94);
+  color: white;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+#settings-panel h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  text-align: center;
+}
+
+#settings-panel label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+#settings-panel input,
+#settings-panel textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: white;
+  font-size: 13px;
+  outline: none;
+}
+
+#settings-panel input:focus,
+#settings-panel textarea:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+#settings-panel .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#settings-panel .checkbox input {
+  width: auto;
+  margin: 0;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.settings-actions button {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.settings-actions button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.settings-actions button#save-btn {
+  background: #FF6B9D;
+}
+
+.settings-actions button#save-btn:hover {
+  background: #ff85ad;
+}

@@ -267,6 +267,8 @@ pnpm build:mac
 
 生成物位于 `dist/`，默认输出未签名的 DMG。macOS 打开未签名应用时若被 Gatekeeper 拦截，可右键选择“打开”，或执行：
 
+推送标签到 GitHub 后，仓库里的 `Release macOS DMG` 工作流会自动在 macOS 上构建 DMG 并发布到 GitHub Releases。
+
 ```bash
 xattr -dr com.apple.quarantine "/path/to/甜甜圈启动台-*.dmg"
 ```

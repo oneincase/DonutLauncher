@@ -40,6 +40,13 @@
       "package.json"
     ],
     "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "oneincase",
+        "repo": "DonutLauncher"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "build/icon.icns",

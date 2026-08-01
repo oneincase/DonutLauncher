@@ -24,6 +24,12 @@ function registerIpcHandlers(mainWindowRef) {
 
   ipcMain.handle('donut:launchApp', async (_event, appPath) => {
     launchApp(appPath);
+    const appEntry = cachedApps.find((app) => app.path === appPath);
+    if (appEntry) {
+      const recentUsage = settings.get('recentUsage') || {};
+      recentUsage[appEntry.id] = Date.now();
+      settings.set('recentUsage', recentUsage);
+    }
     if (mainWindowRef.current) {
       mainWindowRef.current.hide();
     }

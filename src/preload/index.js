@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('donut', {
   setSettings: (partial) => ipcRenderer.invoke('donut:setSettings', partial),
   hideWindow: () => ipcRenderer.invoke('donut:hideWindow'),
   onShow: (callback) => ipcRenderer.on('donut:show', (_event) => callback()),
+  onShortcutError: (callback) => ipcRenderer.on('donut:shortcutError', (_event, shortcut) => callback(shortcut)),
 });

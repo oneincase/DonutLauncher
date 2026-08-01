@@ -1,8 +1,8 @@
 const { app, BrowserWindow, globalShortcut, screen } = require('electron');
 const path = require('path');
-const fs = require('fs');
 const { registerIpcHandlers, refreshApps } = require('./ipc-handlers');
 const settings = require('./settings');
+const { setupLogger } = require('./logger');
 
 const isDev = process.argv.includes('--dev');
 
@@ -68,8 +68,13 @@ function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
   }
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  mainWindow.setPosition(Math.round((width - WINDOW_SIZE) / 2), Math.round((height - WINDOW_SIZE) / 2));
+  const cursorPoint = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursorPoint);
+  const { x, y, width, height } = display.workArea;
+  mainWindow.setPosition(
+    x + Math.round((width - WINDOW_SIZE) / 2),
+    y + Math.round((height - WINDOW_SIZE) / 2),
+  );
   mainWindow.show();
   mainWindow.focus();
   mainWindow.webContents.send('donut:show');
@@ -99,33 +104,20 @@ function registerShortcut() {
   const registered = globalShortcut.register(shortcut, toggleWindow);
   if (!registered) {
     console.error(`Failed to register global shortcut: ${shortcut}`);
+    if (mainWindowRef.current && !mainWindowRef.current.isDestroyed()) {
+      mainWindowRef.current.webContents.send('donut:shortcutError', shortcut);
+    }
   }
 }
 
 app.whenReady().then(async () => {
+  setupLogger();
   createWindow();
   registerIpcHandlers(mainWindowRef);
   registerShortcut();
   settings.onDidChange('shortcut', registerShortcut);
   const apps = await refreshApps();
   console.log(`[main] Scanned ${apps.length} apps`);
-
-  // Dev-only: DONUT_CAPTURE=/path/to.png captures a frame, then quits.
-  const capturePath = process.env.DONUT_CAPTURE;
-  if (capturePath) {
-    setTimeout(async () => {
-      showWindow();
-      await new Promise((r) => setTimeout(r, 2500));
-      try {
-        const image = await mainWindow.capturePage();
-        fs.writeFileSync(capturePath, image.toPNG());
-        console.log(`[main] Capture saved to ${capturePath}`);
-      } catch (err) {
-        console.error('[main] Capture failed:', err.message);
-      }
-      app.quit();
-    }, 1200);
-  }
 });
 
 app.on('will-quit', () => {

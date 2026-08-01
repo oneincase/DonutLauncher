@@ -29,7 +29,7 @@
     "icns-lib": "^1.0.1"
   },
   "build": {
-    "appId": "com.donut-launcher.app",
+    "appId": "com.github.oneincase.DonutLauncher",
     "productName": "甜甜圈启动台",
     "directories": {
       "output": "dist",

@@ -1,6 +1,6 @@
 {
   "name": "DonutLauncher",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "甜甜圈启动台 - macOS 圆形应用启动器",
   "main": "src/main/index.js",
   "scripts": {
@@ -44,7 +44,8 @@
       {
         "provider": "github",
         "owner": "oneincase",
-        "repo": "DonutLauncher"
+        "repo": "DonutLauncher",
+        "releaseType": "release"
       }
     ],
     "mac": {

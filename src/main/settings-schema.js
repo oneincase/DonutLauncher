@@ -56,6 +56,10 @@ const schema = {
     maximum: 2.5,
     default: 1.25,
   },
+  autoCheckUpdate: {
+    type: 'boolean',
+    default: true,
+  },
   favorites: {
     type: 'array',
     items: { type: 'string' },

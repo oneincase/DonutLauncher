@@ -35,6 +35,12 @@
   const rotationSpeedValue = document.getElementById('rotation-speed-value');
   const rotationInput = document.getElementById('rotation-input');
   const sortInput = document.getElementById('sort-input');
+  const autoUpdateInput = document.getElementById('auto-update-input');
+  const checkUpdateBtn = document.getElementById('check-update-btn');
+  const updateDownloadBtn = document.getElementById('update-download-btn');
+  const updateStatusEl = document.getElementById('update-status');
+  const openBilibiliBtn = document.getElementById('open-bilibili-btn');
+  const aboutVersionEl = document.getElementById('about-version');
   const colorPresets = document.getElementById('color-presets');
   const colorChips = document.getElementById('color-chips');
   const colorPreview = document.getElementById('color-preview');
@@ -70,6 +76,7 @@
   let initialLoadPromise = null;
   let iconBodies = [];
   let searchVisible = false;
+  let latestUpdateInfo = null;
 
   function getVisibleApps() {
     const filtered = filterApps(apps, searchQuery, settings.excludedApps || []);
@@ -88,7 +95,10 @@
     strokeInput.value = settings.ringStrokeWidth ?? 2;
     rotationSpeedInput.value = settings.rotationSpeed ?? 1;
     rotationInput.checked = settings.enableRotation ?? true;
+    autoUpdateInput.checked = settings.autoCheckUpdate ?? true;
     sortInput.value = settings.sortMode || 'name';
+    const version = await window.donut.getVersion();
+    aboutVersionEl.textContent = `v${version}`;
     ringColorsList = settings.ringColors && settings.ringColors.length ? settings.ringColors.slice() : [...DEFAULT_COLORS];
     syncColorPicker(ringColorsList[ringColorsList.length - 1] || DEFAULT_COLORS[0]);
     centerSizeInput.value = settings.centerIconSize ?? 56;
@@ -679,6 +689,41 @@
     renderAll();
   }
 
+  function renderUpdateStatus() {
+    const info = latestUpdateInfo;
+    if (!info || info.error) {
+      updateStatusEl.textContent = info && info.error ? `检查失败：${info.error}` : '检查更新失败';
+      updateDownloadBtn.classList.add('hidden');
+      return;
+    }
+    if (info.notice) {
+      updateStatusEl.textContent = info.notice;
+      updateDownloadBtn.classList.add('hidden');
+      return;
+    }
+    if (info.hasUpdate) {
+      updateStatusEl.textContent = `发现新版本 ${info.latestVersion}，当前版本 ${info.currentVersion}`;
+      updateDownloadBtn.classList.remove('hidden');
+    } else {
+      updateStatusEl.textContent = `当前已是最新版本 ${info.currentVersion}`;
+      updateDownloadBtn.classList.add('hidden');
+    }
+  }
+
+  async function checkForUpdates() {
+    checkUpdateBtn.disabled = true;
+    updateStatusEl.textContent = '正在检查更新...';
+    updateDownloadBtn.classList.add('hidden');
+    try {
+      latestUpdateInfo = await window.donut.checkUpdate();
+      renderUpdateStatus();
+    } catch {
+      updateStatusEl.textContent = '检查更新失败，请稍后重试';
+    } finally {
+      checkUpdateBtn.disabled = false;
+    }
+  }
+
   function renderAll() {
     const visible = getVisibleApps();
     if (visible.length === 0) {
@@ -801,6 +846,7 @@
       shortcut: shortcutInput.value,
       rotationSpeed: parseFloat(rotationSpeedInput.value),
       iconScale: parseFloat(iconScaleInput.value),
+      autoCheckUpdate: autoUpdateInput.checked,
       sortMode: sortInput.value,
       centerIconPath: settings.centerIconPath || '',
       centerIconSize: parseFloat(centerSizeInput.value),
@@ -832,6 +878,16 @@
     settingsPanel.querySelectorAll('.settings-tab-pane').forEach((pane) => {
       pane.classList.toggle('hidden', pane.dataset.pane !== btn.dataset.tab);
     });
+  });
+
+  checkUpdateBtn.addEventListener('click', checkForUpdates);
+  updateDownloadBtn.addEventListener('click', () => {
+    if (latestUpdateInfo && latestUpdateInfo.releaseUrl) {
+      window.donut.openExternal(latestUpdateInfo.releaseUrl);
+    }
+  });
+  openBilibiliBtn.addEventListener('click', () => {
+    window.donut.openExternal('https://space.bilibili.com/44240441');
   });
 
   recordBtn.addEventListener('click', () => {

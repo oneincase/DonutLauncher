@@ -5,7 +5,7 @@
  */
 const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
-const { registerIpcHandlers, refreshApps, getCachedApps } = require('./ipc-handlers');
+const { registerIpcHandlers, refreshApps, getCachedApps, checkForUpdatesAndPrompt } = require('./ipc-handlers');
 const { normalizeViewSize, WINDOW_SCALE } = require('./window-size');
 const settings = require('./settings');
 const { setupLogger } = require('./logger');
@@ -252,6 +252,9 @@ if (!gotSingleInstanceLock) {
     registerShortcut();
     settings.onDidChange('shortcut', registerShortcut);
     showWindow();
+    if (settings.get('autoCheckUpdate') !== false) {
+      checkForUpdatesAndPrompt(() => mainWindowRef.current);
+    }
     const apps = await refreshApps();
     console.log(`[main] Scanned ${apps.length} apps`);
   });

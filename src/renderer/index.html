@@ -37,6 +37,7 @@
       <button type="button" data-tab="launch" class="active">启动</button>
       <button type="button" data-tab="appearance">外观</button>
       <button type="button" data-tab="apps">应用</button>
+      <button type="button" data-tab="about">关于</button>
     </div>
 
     <div class="settings-tab-pane" data-pane="launch">
@@ -133,6 +134,37 @@
             <button id="unhide-all-btn" type="button" class="small">全部取消隐藏</button>
           </div>
           <div id="hidden-apps-list" class="hidden-apps-list"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="settings-tab-pane hidden" data-pane="about">
+      <section class="settings-section">
+        <h3>软件信息</h3>
+        <div class="about-meta">
+          <p class="about-name">甜甜圈启动台 <span id="about-version">v0.0.1</span></p>
+          <p class="about-description">macOS 圆形应用启动器，基于 Electron 构建，支持全局快捷键、环形布局、实时搜索、收藏与隐藏应用。</p>
+        </div>
+      </section>
+      <section class="settings-section">
+        <h3>更新</h3>
+        <div class="settings-toggles">
+          <label class="checkbox">
+            <input id="auto-update-input" type="checkbox">
+            <span>自动检查更新</span>
+          </label>
+        </div>
+        <div class="about-update-row">
+          <button id="check-update-btn" type="button">检查更新</button>
+          <button id="update-download-btn" type="button" class="hidden">前往下载</button>
+        </div>
+        <p id="update-status" class="about-status">暂未检查</p>
+      </section>
+      <section class="settings-section">
+        <h3>支持</h3>
+        <div class="about-link-row">
+          <span>B站 UP：在下练习两年的坤</span>
+          <button id="open-bilibili-btn" type="button">访问主页</button>
         </div>
       </section>
     </div>

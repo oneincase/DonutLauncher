@@ -97,7 +97,7 @@ pnpm start
 
 ### 设置面板
 
-设置面板包含三个页签：
+设置面板包含四个页签：
 
 **启动**
 
@@ -118,6 +118,12 @@ pnpm start
 - 添加/移除自定义扫描目录
 - 管理已隐藏应用
 - 手动刷新应用列表
+
+**关于**
+
+- 查看软件版本与基本说明
+- 手动或自动检查 GitHub 最新发布版本，可关闭自动检查
+- 打开 B站 UP「在下练习两年的坤」主页
 
 ## 数据存储
 
@@ -146,6 +152,7 @@ pnpm start
 | `enableRotation` | `true` | 是否缓慢旋转 |
 | `rotationSpeed` | `1` | 旋转速度（0-3） |
 | `iconScale` | `1.25` | 选中/悬停图标放大比例 |
+| `autoCheckUpdate` | `true` | 启动时自动检查 GitHub 新版本 |
 | `favorites` | `[]` | 收藏应用 id 列表 |
 | `sortMode` | `name` | 排序方式：`name` / `recent` / `favorites` |
 | `recentUsage` | `{}` | 应用最近使用时间记录 |

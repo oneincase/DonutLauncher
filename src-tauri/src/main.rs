@@ -9,7 +9,7 @@ mod window;
 
 use std::sync::Mutex;
 
-use tauri::Manager;
+use tauri::{Manager, RunEvent};
 use tauri_plugin_autostart::ManagerExt;
 
 pub struct AppState {
@@ -94,6 +94,18 @@ fn main() {
         .on_window_event(|window, event| {
             window::handle_window_event(window, event);
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            if let RunEvent::ExitRequested { code, api, .. } = event {
+                // On macOS the hidden window is destroyed after a delay
+                // (see `window::schedule_destroy`); destroying the last window
+                // makes the runtime request an exit. The app is meant to keep
+                // living in the tray, so only allow exiting when explicitly
+                // requested via `app.exit()` (e.g. the tray "quit" item).
+                if code.is_none() {
+                    api.prevent_exit();
+                }
+            }
+        });
 }

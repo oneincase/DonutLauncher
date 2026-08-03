@@ -1,6 +1,6 @@
 [package]
 name = "donut-launcher"
-version = "1.0.2"
+version = "1.0.3"
 description = "甜甜圈启动台 - macOS/Windows 圆形应用启动器"
 authors = ["oneincase <462534624@qq.com>"]
 edition = "2021"

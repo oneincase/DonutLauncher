@@ -336,6 +336,67 @@ mod windows {
 
     use super::{data_url, entry_id, md5_hex, AppEntry};
 
+    // Windows Start Menu shortcut names are often English even on a Chinese
+    // system, so map known names to their Chinese equivalents.
+    const WINDOWS_APP_CHINESE_NAMES: &[(&str, &str)] = &[
+        ("3D Viewer", "3D 查看器"),
+        ("Alarms & Clock", "闹钟和时钟"),
+        ("Calculator", "计算器"),
+        ("Calendar", "日历"),
+        ("Camera", "相机"),
+        ("Character Map", "字符映射表"),
+        ("Command Prompt", "命令提示符"),
+        ("Control Panel", "控制面板"),
+        ("Device Manager", "设备管理器"),
+        ("Disk Cleanup", "磁盘清理"),
+        ("Disk Management", "磁盘管理"),
+        ("Event Viewer", "事件查看器"),
+        ("Feedback Hub", "反馈中心"),
+        ("File Explorer", "文件资源管理器"),
+        ("Get Help", "获取帮助"),
+        ("Getting Started", "入门"),
+        ("Groove Music", "Groove 音乐"),
+        ("Mail", "邮件"),
+        ("Magnifier", "放大镜"),
+        ("Maps", "地图"),
+        ("Math Input Panel", "数学输入面板"),
+        ("Microsoft Store", "Microsoft Store"),
+        ("Mixed Reality Portal", "Mixed Reality 门户"),
+        ("Movies & TV", "电影和电视"),
+        ("Narrator", "讲述人"),
+        ("Notepad", "记事本"),
+        ("On-Screen Keyboard", "屏幕键盘"),
+        ("OneNote", "OneNote"),
+        ("Paint", "画图"),
+        ("People", "人脉"),
+        ("Photos", "照片"),
+        ("PowerShell", "PowerShell"),
+        ("Registry Editor", "注册表编辑器"),
+        ("Run", "运行"),
+        ("Services", "服务"),
+        ("Settings", "设置"),
+        ("Snipping Tool", "截图工具"),
+        ("Sticky Notes", "便笺"),
+        ("Store", "Microsoft Store"),
+        ("Task Manager", "任务管理器"),
+        ("Terminal", "终端"),
+        ("Tips", "使用技巧"),
+        ("Voice Recorder", "语音录音机"),
+        ("Windows Defender", "Windows Defender"),
+        ("Windows Media Player", "Windows Media Player"),
+        ("Windows Security", "Windows 安全中心"),
+        ("Windows Update", "Windows 更新"),
+        ("WordPad", "写字板"),
+        ("Xbox", "Xbox"),
+    ];
+
+    fn windows_chinese_name(name: &str) -> Option<&str> {
+        WINDOWS_APP_CHINESE_NAMES
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| *value)
+    }
+
     fn walk_shortcuts(dir: &Path, seen: &mut HashSet<PathBuf>, shortcuts: &mut Vec<PathBuf>) {
         if !dir.is_dir() {
             return;
@@ -409,23 +470,285 @@ mod windows {
             .filter(|path| path.is_file());
         let icon_src = icon_location
             .or_else(|| lnk_target_path(&lnk))
-            .filter(|path| path.is_file())?;
+            .filter(|path| path.is_file());
 
-        if icon_src
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext.eq_ignore_ascii_case("ico"))
-            .unwrap_or(false)
-        {
-            let bytes = fs::read(&icon_src).ok()?;
-            return ico_to_png(&bytes);
+        // Standalone .ico files convert directly.
+        if let Some(src) = &icon_src {
+            if src
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("ico"))
+                .unwrap_or(false)
+            {
+                if let Ok(bytes) = fs::read(src) {
+                    if let Some(png) = ico_to_png(&bytes) {
+                        return Some(png);
+                    }
+                }
+            }
         }
 
         // Any PE (exe/dll) exposes its embedded icons through the same resource API.
-        let exe_bytes = fs::read(&icon_src).ok()?;
-        let icons = exeico::get_icos(&exe_bytes).ok()?;
-        let ico_bytes = icons.first()?.data.clone();
-        ico_to_png(&ico_bytes)
+        // UWP/AppX apps (Calculator, Photos, Settings...) have no icon resources in
+        // their exe, so this fails and we fall back to the Shell resolver below.
+        if let Some(src) = &icon_src {
+            if let Ok(exe_bytes) = fs::read(src) {
+                if let Ok(icons) = exeico::get_icos(&exe_bytes) {
+                    if let Some(first) = icons.first() {
+                        if let Some(png) = ico_to_png(&first.data) {
+                            return Some(png);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Shell fallback: resolve the .lnk through the Windows Shell so UWP apps
+        // get their proper icon.
+        shell_icon_png(lnk_path)
+    }
+
+    #[cfg(target_os = "windows")]
+    fn shell_icon_png(lnk_path: &Path) -> Option<Vec<u8>> {
+        use std::ffi::OsStr;
+        use std::io::Cursor;
+        use std::mem::MaybeUninit;
+        use std::os::windows::ffi::OsStrExt;
+
+        use windows::core::PCWSTR;
+        use windows::Win32::Graphics::Gdi::{
+            BI_RGB, BITMAP, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDC,
+            GetDIBits, GetObjectW, HGDIOBJ, ReleaseDC,
+        };
+        use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
+        use windows::Win32::UI::Shell::{SHFILEINFOW, SHGetFileInfoW, SHGFI_ICON};
+        use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON};
+
+        struct AutoDc(windows::Win32::Graphics::Gdi::HDC);
+        impl Drop for AutoDc {
+            fn drop(&mut self) {
+                if !self.0 .0.is_null() {
+                    unsafe {
+                        ReleaseDC(None, self.0);
+                    }
+                }
+            }
+        }
+        struct AutoObject(HGDIOBJ);
+        impl Drop for AutoObject {
+            fn drop(&mut self) {
+                if !self.0 .0.is_null() {
+                    unsafe {
+                        DeleteObject(self.0);
+                    }
+                }
+            }
+        }
+        struct AutoIcon(HICON);
+        impl Drop for AutoIcon {
+            fn drop(&mut self) {
+                if !self.0 .0.is_null() {
+                    unsafe {
+                        DestroyIcon(self.0);
+                    }
+                }
+            }
+        }
+
+        // Resolve the .lnk through the Shell to get its HICON.
+        let wide: Vec<u16> = OsStr::new(lnk_path).encode_wide().chain(Some(0)).collect();
+        let mut info = MaybeUninit::<SHFILEINFOW>::uninit();
+        let result = unsafe {
+            SHGetFileInfoW(
+                PCWSTR::from_raw(wide.as_ptr()),
+                FILE_FLAGS_AND_ATTRIBUTES(0),
+                Some(info.as_mut_ptr()),
+                std::mem::size_of::<SHFILEINFOW>() as u32,
+                SHGFI_ICON,
+            )
+        };
+        if result == 0 {
+            return None;
+        }
+        let info = unsafe { info.assume_init() };
+        let hicon = info.hIcon;
+        if hicon.0.is_null() {
+            return None;
+        }
+
+        // Convert the HICON to RGBA via GetIconInfo + GetDIBits.
+        let mut icon_info = MaybeUninit::uninit();
+        let ok = unsafe { GetIconInfo(hicon, icon_info.as_mut_ptr()) };
+        if ok.is_err() {
+            unsafe {
+                DestroyIcon(hicon);
+            }
+            return None;
+        }
+        let icon_info = unsafe { icon_info.assume_init() };
+        let _mask_guard = AutoObject(HGDIOBJ::from(icon_info.hbmMask));
+        let _color_guard = AutoObject(HGDIOBJ::from(icon_info.hbmColor));
+        let _icon_guard = AutoIcon(hicon);
+
+        let mut bm = MaybeUninit::<BITMAP>::uninit();
+        let size = std::mem::size_of::<BITMAP>() as i32;
+        let n = unsafe {
+            GetObjectW(
+                HGDIOBJ::from(icon_info.hbmColor),
+                size,
+                Some(bm.as_mut_ptr().cast()),
+            )
+        };
+        if n != size {
+            return None;
+        }
+        let bm = unsafe { bm.assume_init() };
+        let width = bm.bmWidth.unsigned_abs();
+        let height = bm.bmHeight.unsigned_abs();
+        if width == 0 || height == 0 {
+            return None;
+        }
+
+        let mut buf = vec![0u32; (width as usize) * (height as usize)];
+        let dc = unsafe { GetDC(None) };
+        if dc.0.is_null() {
+            return None;
+        }
+        let _dc_guard = AutoDc(dc);
+
+        let mut bi = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: bm.bmWidth,
+                biHeight: -(bm.bmHeight as i32),
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB.0,
+                biSizeImage: 0,
+                biXPelsPerMeter: 0,
+                biYPelsPerMeter: 0,
+                biClrUsed: 0,
+                biClrImportant: 0,
+            },
+            bmiColors: [Default::default()],
+        };
+        let lines = unsafe {
+            GetDIBits(
+                dc,
+                icon_info.hbmColor,
+                0,
+                height,
+                Some(buf.as_mut_ptr().cast()),
+                &mut bi,
+                DIB_RGB_COLORS,
+            )
+        };
+        if lines == 0 || lines as u32 != height {
+            return None;
+        }
+
+        // Read the 1-bit AND-mask bitmap to fill in alpha for icons that store
+        // transparency in the mask plane (16/24bpp icons) instead of a 32-bit
+        // alpha channel. A set mask bit means transparent, a clear bit opaque.
+        let mask_bits = if bm.bmBitsPixel < 32 {
+            read_mono_mask(dc, icon_info.hbmMask, width, height)
+        } else {
+            None
+        };
+
+        // BGRA -> RGBA
+        let mut rgba = Vec::with_capacity(buf.len() * 4);
+        for (i, px) in buf.iter().enumerate() {
+            let b = (px & 0xff) as u8;
+            let g = ((px >> 8) & 0xff) as u8;
+            let r = ((px >> 16) & 0xff) as u8;
+            let mut a = ((px >> 24) & 0xff) as u8;
+            if let Some(mask) = &mask_bits {
+                let byte = mask[i / 8];
+                let bit = byte & (0x80 >> (i % 8));
+                let transparent = bit != 0;
+                a = if transparent { 0 } else { 255 };
+            }
+            rgba.extend_from_slice(&[r, g, b, a]);
+        }
+
+        let image = image::RgbaImage::from_raw(width, height, rgba)?;
+        let mut png = Vec::new();
+        image
+            .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+            .ok()?;
+        Some(png)
+    }
+
+    // Reads a 1-bit-per-pixel mask bitmap into a packed byte array (MSB first,
+    // rows padded to 32-bit alignment), so alpha can be derived for icons that
+    // encode transparency through the mask plane.
+    fn read_mono_mask(
+        dc: windows::Win32::Graphics::Gdi::HDC,
+        mask: windows::Win32::Graphics::Gdi::HBITMAP,
+        width: u32,
+        height: u32,
+    ) -> Option<Vec<u8>> {
+        use std::mem::MaybeUninit;
+
+        use windows::Win32::Graphics::Gdi::{BITMAP, BI_RGB, DIB_RGB_COLORS, GetDIBits, GetObjectW};
+
+        if mask.0.is_null() {
+            return None;
+        }
+        let mut bm = MaybeUninit::<BITMAP>::uninit();
+        let size = std::mem::size_of::<BITMAP>() as i32;
+        let n = unsafe { GetObjectW(HGDIOBJ::from(mask), size, Some(bm.as_mut_ptr().cast())) };
+        if n != size {
+            return None;
+        }
+        let bm = unsafe { bm.assume_init() };
+        if bm.bmWidth == 0 || bm.bmHeight == 0 {
+            return None;
+        }
+        // 1bpp scan lines are padded to 32-bit boundaries.
+        let stride = ((bm.bmWidth as u32 + 31) / 32) * 4;
+        let mut bits = vec![0u8; (stride * bm.bmHeight.unsigned_abs()) as usize];
+        let mut bi = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: bm.bmWidth,
+                biHeight: -(bm.bmHeight as i32),
+                biPlanes: 1,
+                biBitCount: 1,
+                biCompression: BI_RGB.0,
+                biSizeImage: 0,
+                biXPelsPerMeter: 0,
+                biYPelsPerMeter: 0,
+                biClrUsed: 0,
+                biClrImportant: 0,
+            },
+            bmiColors: [Default::default()],
+        };
+        let lines = unsafe {
+            GetDIBits(
+                dc,
+                mask,
+                0,
+                bm.bmHeight.unsigned_abs(),
+                Some(bits.as_mut_ptr().cast()),
+                &mut bi,
+                DIB_RGB_COLORS,
+            )
+        };
+        if lines == 0 {
+            return None;
+        }
+
+        // Pack the padded rows into a tight MSB-first byte array.
+        let row_bytes = (width + 7) / 8;
+        let mut packed = vec![0u8; (row_bytes * height) as usize];
+        for y in 0..height {
+            let src = &bits[(y as usize) * stride as usize..(y as usize) * stride as usize + row_bytes as usize];
+            let dst = &mut packed[(y as usize) * row_bytes as usize..(y as usize) * row_bytes as usize + row_bytes as usize];
+            dst.copy_from_slice(src);
+        }
+        Some(packed)
     }
 
     fn icon_data_url(lnk_path: &Path, cache_dir: &Path) -> String {
@@ -476,10 +799,13 @@ mod windows {
                     .and_then(|stem| stem.to_str())
                     .unwrap_or("")
                     .to_string();
+                let display_name = windows_chinese_name(&name)
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| name.clone());
                 AppEntry {
                     id: entry_id(&path_text),
                     name: name.clone(),
-                    display_name: name,
+                    display_name,
                     path: path_text,
                     icon_data_url: icon_data_url(&path, &cache_dir),
                 }

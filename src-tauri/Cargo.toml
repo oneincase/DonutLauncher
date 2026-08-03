@@ -29,3 +29,11 @@ log = "0.4"
 parselnk = "0.1"
 ico = "0.5"
 exeico = "0.1"
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+] }
+image = { version = "0.25", default-features = false, features = ["png"] }

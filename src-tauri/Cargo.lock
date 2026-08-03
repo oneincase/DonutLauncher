@@ -1020,6 +1020,7 @@ dependencies = [
  "dirs 6.0.0",
  "exeico",
  "ico",
+ "image",
  "log",
  "md-5",
  "opener",
@@ -1035,6 +1036,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "windows",
 ]
 
 [[package]]

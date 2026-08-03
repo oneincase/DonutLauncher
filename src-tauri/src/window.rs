@@ -78,6 +78,9 @@ pub fn handle_window_event(window: &Window, event: &WindowEvent) {
 }
 
 fn schedule_destroy(app: AppHandle) {
+    // Destroying the last window on Windows exits the process, so keep the
+    // hidden window around there and only reap it on macOS.
+    #[cfg(target_os = "macos")]
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(HIDDEN_WINDOW_TTL_SECS));
         if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {

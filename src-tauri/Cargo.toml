@@ -1,6 +1,6 @@
 [package]
 name = "donut-launcher"
-version = "1.0.1"
+version = "1.0.2"
 description = "甜甜圈启动台 - macOS/Windows 圆形应用启动器"
 authors = ["oneincase <462534624@qq.com>"]
 edition = "2021"
@@ -24,3 +24,8 @@ md-5 = "0.10"
 opener = "0.7"
 dirs = "6"
 log = "0.4"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+parselnk = "0.1"
+ico = "0.5"
+exeico = "0.1"

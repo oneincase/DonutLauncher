@@ -10,17 +10,26 @@ use tauri::{AppHandle, Manager};
 fn default_scan_paths() -> Vec<String> {
     let mut paths = Vec::new();
     #[cfg(target_os = "macos")]
-    paths.push("/System/Applications".to_string());
-    paths.push("/Applications".to_string());
-    if let Some(home) = dirs::home_dir() {
-        paths.push(home.join("Applications").to_string_lossy().into_owned());
+    {
+        paths.push("/System/Applications".to_string());
+        paths.push("/Applications".to_string());
+        if let Some(home) = dirs::home_dir() {
+            paths.push(home.join("Applications").to_string_lossy().into_owned());
+        }
     }
+    // Windows: the scanner appends the Start Menu paths automatically,
+    // so no macOS-style application directories are exposed here.
     paths
 }
 
 fn default_center_icon_path() -> String {
     "/center.jpg".to_string()
 }
+
+#[cfg(target_os = "macos")]
+const DEFAULT_SHORTCUT: &str = "Option+Space";
+#[cfg(not(target_os = "macos"))]
+const DEFAULT_SHORTCUT: &str = "Alt+Space";
 
 #[cfg(target_os = "macos")]
 const SYSTEM_APPS_PATH: &str = "/System/Applications";
@@ -67,7 +76,7 @@ impl Default for Settings {
             ],
             ring_opacity: 0.45,
             ring_stroke_width: 2.0,
-            shortcut: "Option+Space".to_string(),
+            shortcut: DEFAULT_SHORTCUT.to_string(),
             center_icon_path: String::new(),
             center_icon_size: 56.0,
             enable_rotation: true,
@@ -91,6 +100,7 @@ pub struct SettingsView {
     pub settings: Settings,
     pub default_scan_paths: Vec<String>,
     pub default_center_icon_path: String,
+    pub platform: String,
 }
 
 pub struct SettingsState(pub Mutex<Settings>);
@@ -180,6 +190,7 @@ pub fn settings_view(settings: Settings) -> SettingsView {
         settings,
         default_scan_paths: default_scan_paths(),
         default_center_icon_path: default_center_icon_path(),
+        platform: std::env::consts::OS.to_string(),
     }
 }
 
@@ -255,7 +266,10 @@ mod tests {
     fn defaults_are_valid() {
         let settings = Settings::default();
         assert!(validate(&settings).is_ok());
+        #[cfg(target_os = "macos")]
         assert_eq!(settings.shortcut, "Option+Space");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(settings.shortcut, "Alt+Space");
         assert_eq!(settings.sort_mode, "name");
         assert_eq!(settings.target_fps, 60.0);
     }
@@ -281,6 +295,7 @@ mod tests {
         let paths = default_scan_paths();
         #[cfg(target_os = "macos")]
         assert!(paths.contains(&"/System/Applications".to_string()));
+        #[cfg(target_os = "macos")]
         assert!(paths.contains(&"/Applications".to_string()));
     }
 

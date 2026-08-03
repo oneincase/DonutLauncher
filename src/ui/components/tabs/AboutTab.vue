@@ -5,6 +5,10 @@ import { useLauncherStore } from '../../stores/launcher';
 
 const store = useLauncherStore();
 const draft = computed(() => store.draft as SettingsView);
+const platformLabel = computed(() => {
+  const platform = draft.value?.platform ?? 'macos';
+  return platform === 'macos' ? 'macOS' : 'Windows';
+});
 const updateStatusText = computed(() => {
   const info = store.latestUpdateInfo;
   if (!info || info.error) return info?.error ? `检查失败：${info.error}` : '检查更新失败';
@@ -25,7 +29,7 @@ const updateStatusText = computed(() => {
             甜甜圈启动台 <span id="about-version">v{{ store.version }}</span>
           </div>
           <div class="settings-item-subtitle">
-            macOS 圆形应用启动器，基于 Tauri + Vue 构建。
+            {{ platformLabel }} 圆形应用启动器，基于 Tauri + Vue 构建。
           </div>
         </div>
       </div>

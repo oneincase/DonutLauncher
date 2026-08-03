@@ -10,6 +10,9 @@ const KEY_MAP: Record<string, string> = {
   Delete: 'Delete',
 };
 
+export const IS_MAC =
+  typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
+
 const CODE_TO_KEY: Record<string, string> = {
   Backquote: '`',
   BracketLeft: '[',
@@ -27,8 +30,8 @@ const CODE_TO_KEY: Record<string, string> = {
 export function buildAccelerator(event: KeyboardEvent): string | null {
   const parts: string[] = [];
   if (event.ctrlKey) parts.push('Control');
-  if (event.metaKey) parts.push('Command');
-  if (event.altKey) parts.push('Option');
+  if (event.metaKey) parts.push(IS_MAC ? 'Command' : 'Win');
+  if (event.altKey) parts.push(IS_MAC ? 'Option' : 'Alt');
   if (event.shiftKey) parts.push('Shift');
   let normalizedKey = KEY_MAP[event.key] || (event.code === 'Space' ? 'Space' : event.key);
   if (normalizedKey.length === 1) {

@@ -36,6 +36,13 @@ fn sync_autostart(app: &tauri::AppHandle, settings: &settings::Settings) {
 }
 
 fn main() {
+    #[cfg(target_os = "macos")]
+    let autostart = tauri_plugin_autostart::Builder::new()
+        .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
+        .build();
+    #[cfg(not(target_os = "macos"))]
+    let autostart = tauri_plugin_autostart::Builder::new().build();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             window::show_main_window(app);
@@ -44,11 +51,7 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_log::Builder::new().build())
-        .plugin(
-            tauri_plugin_autostart::Builder::new()
-                .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
-                .build(),
-        )
+        .plugin(autostart)
         .manage(AppState {
             apps: Mutex::new(Vec::new()),
         })

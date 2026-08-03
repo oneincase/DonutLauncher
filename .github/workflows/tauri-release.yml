@@ -56,20 +56,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: '甜甜圈启动台 v__VERSION__'
+          releaseName: 'Donut Launcher v__VERSION__'
           releaseBody: |
-            甜甜圈启动台（Donut Launcher）v__VERSION__
+            Donut Launcher v__VERSION__
 
-            ## 更新内容
+            ## What's New
 
-            - 多页分页：超过 54 个应用自动分页，触摸板双指滑动或 Tab 键切换
-            - 翻页动画：切换分页时圆心图片沿纵轴翻转 360°
-            - 系统应用：默认扫描 /System/Applications，计算器、磁盘工具等开箱即见
-            - 开机自启动：设置面板新增开机自动启动开关
-            - 启动直接显示窗口，快捷键切换显示/隐藏
-            - 关于页新增 GitHub 项目仓库入口
+            - Pagination: auto-split into pages when more than 54 apps, swipe with two fingers or press Tab to switch
+            - Page flip animation: center image flips 360° along the vertical axis when switching pages
+            - System apps: /System/Applications scanned by default on macOS
+            - Auto-start on login: new toggle in settings
+            - Window shows on launch, global shortcut toggles show/hide
+            - About page with GitHub repository link
 
-            选择对应平台的安装包下载安装。
+            Download the installer for your platform.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

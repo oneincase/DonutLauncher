@@ -29,6 +29,7 @@ export interface Settings {
 export interface SettingsView extends Settings {
   defaultScanPaths: string[];
   defaultCenterIconPath: string;
+  platform: 'macos' | 'windows' | 'linux';
 }
 
 export interface UpdateInfo {

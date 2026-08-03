@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import type { AppEntry, Settings, SettingsView, UpdateInfo } from '../types';
 import { clampIndex, filterApps, sortApps } from '../lib/app-list-utils';
 import { DEFAULT_COLORS } from '../lib/color-utils';
-import { buildAccelerator } from '../lib/shortcut-utils';
+import { buildAccelerator, IS_MAC } from '../lib/shortcut-utils';
 import { calculatePageCount, paginateApps } from '../lib/donut-layout';
 import { api } from '../services/api';
 import { hideWindow, syncWindowSize } from '../services/window-service';
@@ -23,7 +23,7 @@ export const useLauncherStore = defineStore('launcher', () => {
   const latestUpdateInfo = ref<UpdateInfo | null>(null);
   const shortcutError = ref('');
   const recordingShortcut = ref(false);
-  const shortcutDraft = ref('Option+Space');
+  const shortcutDraft = ref(IS_MAC ? 'Option+Space' : 'Alt+Space');
   const ringColorsList = ref<string[]>([...DEFAULT_COLORS]);
 
   const visibleApps = computed(() => {
@@ -161,7 +161,7 @@ export const useLauncherStore = defineStore('launcher', () => {
   function openSettings() {
     if (!settings.value) return;
     draft.value = JSON.parse(JSON.stringify(settings.value)) as SettingsView;
-    shortcutDraft.value = settings.value.shortcut || 'Option+Space';
+    shortcutDraft.value = settings.value.shortcut || (IS_MAC ? 'Option+Space' : 'Alt+Space');
     shortcutError.value = '';
     isSettingsOpen.value = true;
   }

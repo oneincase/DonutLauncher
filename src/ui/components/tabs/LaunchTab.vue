@@ -7,6 +7,13 @@ const store = useLauncherStore();
 const draft = computed(() => store.draft as SettingsView);
 const fileInput = ref<HTMLInputElement | null>(null);
 
+const autoLaunchLabel = computed(() => {
+  const platform = draft.value?.platform ?? 'macos';
+  return platform === 'macos'
+    ? '登录 macOS 时自动启动甜甜圈启动台'
+    : '登录 Windows 时自动启动甜甜圈启动台';
+});
+
 function onFileChange() {
   const file = fileInput.value?.files?.[0];
   if (file) void store.pickCenterIcon(file);
@@ -54,7 +61,7 @@ function onFileChange() {
         <label class="settings-item">
           <div class="settings-item-text">
             <div class="settings-item-title">开机自动启动</div>
-            <div class="settings-item-subtitle">登录 macOS 时自动启动甜甜圈启动台</div>
+            <div class="settings-item-subtitle">{{ autoLaunchLabel }}</div>
           </div>
           <div class="settings-item-control">
             <input

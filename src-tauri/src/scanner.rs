@@ -35,7 +35,7 @@ pub fn scan_applications(scan_paths: Vec<String>, cache_dir: PathBuf) -> Vec<App
     }
     #[cfg(target_os = "windows")]
     {
-        windows::scan(scan_paths)
+        windows::scan(scan_paths, cache_dir)
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
@@ -332,8 +332,9 @@ mod windows {
     use std::collections::HashSet;
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::time::UNIX_EPOCH;
 
-    use super::{entry_id, AppEntry};
+    use super::{data_url, entry_id, md5_hex, AppEntry};
 
     fn walk_shortcuts(dir: &Path, seen: &mut HashSet<PathBuf>, shortcuts: &mut Vec<PathBuf>) {
         if !dir.is_dir() {
@@ -356,7 +357,100 @@ mod windows {
         }
     }
 
-    pub fn scan(scan_paths: Vec<String>) -> Vec<AppEntry> {
+    fn lnk_target_path(lnk: &parselnk::Lnk) -> Option<PathBuf> {
+        let base = lnk
+            .link_info
+            .local_base_path_unicode
+            .as_ref()
+            .or(lnk.link_info.local_base_path.as_ref())?;
+        let suffix = lnk
+            .link_info
+            .common_path_suffix_unicode
+            .as_ref()
+            .or(lnk.link_info.common_path_suffix.as_ref());
+        let joined = match suffix {
+            Some(s) if s.starts_with('\\') || s.starts_with('/') => format!("{}{}", base, s),
+            Some(s) => format!("{}\\{}", base, s),
+            None => base.clone(),
+        };
+        Some(PathBuf::from(joined))
+    }
+
+    // "C:\app.exe,0" -> "C:\app.exe" (strip a trailing icon resource index)
+    fn strip_icon_index(path: &Path) -> PathBuf {
+        let text = path.to_string_lossy();
+        match text.rsplit_once(',') {
+            Some((head, idx)) if idx.parse::<i32>().is_ok() => PathBuf::from(head),
+            _ => path.to_path_buf(),
+        }
+    }
+
+    fn ico_to_png(ico_bytes: &[u8]) -> Option<Vec<u8>> {
+        let icon_dir = ico::IconDir::read(std::io::Cursor::new(ico_bytes)).ok()?;
+        let entry = icon_dir
+            .entries()
+            .iter()
+            .max_by_key(|e| (e.width() * e.height(), e.bits_per_pixel()))?;
+        let image = entry.decode().ok()?;
+        let mut png = Vec::new();
+        image.write_png(&mut png).ok()?;
+        Some(png)
+    }
+
+    fn extract_icon_png(lnk_path: &Path) -> Option<Vec<u8>> {
+        let lnk = parselnk::Lnk::try_from(lnk_path).ok()?;
+
+        // Prefer the .lnk's declared icon source; fall back to the target executable.
+        let icon_location = lnk
+            .string_data
+            .icon_location
+            .as_ref()
+            .map(|path| strip_icon_index(path))
+            .filter(|path| path.is_file());
+        let icon_src = icon_location
+            .or_else(|| lnk_target_path(&lnk))
+            .filter(|path| path.is_file())?;
+
+        if icon_src
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("ico"))
+            .unwrap_or(false)
+        {
+            let bytes = fs::read(&icon_src).ok()?;
+            return ico_to_png(&bytes);
+        }
+
+        // Any PE (exe/dll) exposes its embedded icons through the same resource API.
+        let exe_bytes = fs::read(&icon_src).ok()?;
+        let icons = exeico::get_icos(&exe_bytes).ok()?;
+        let ico_bytes = icons.first()?.data.clone();
+        ico_to_png(&ico_bytes)
+    }
+
+    fn icon_data_url(lnk_path: &Path, cache_dir: &Path) -> String {
+        let mtime = fs::metadata(lnk_path)
+            .ok()
+            .and_then(|meta| meta.modified().ok())
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(0);
+        let hash = md5_hex(&lnk_path.to_string_lossy());
+        let cache_file = cache_dir.join(format!("win-{hash}-{mtime}.png"));
+        if cache_file.is_file() {
+            if let Ok(bytes) = fs::read(&cache_file) {
+                return data_url(&bytes);
+            }
+        }
+        let _ = fs::create_dir_all(cache_dir);
+        if let Some(png) = extract_icon_png(lnk_path) {
+            let _ = fs::write(&cache_file, &png);
+            return data_url(&png);
+        }
+        String::new()
+    }
+
+    pub fn scan(scan_paths: Vec<String>, cache_dir: PathBuf) -> Vec<AppEntry> {
         let mut paths = scan_paths;
         if let Ok(program_data) = std::env::var("PROGRAMDATA") {
             paths.push(format!(
@@ -387,7 +481,7 @@ mod windows {
                     name: name.clone(),
                     display_name: name,
                     path: path_text,
-                    icon_data_url: String::new(),
+                    icon_data_url: icon_data_url(&path, &cache_dir),
                 }
             })
             .collect()

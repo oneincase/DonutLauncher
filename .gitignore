@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Tauri
+src-tauri/target
+src-tauri/gen/schemas
+test-results
+playwright-report
+
+# Local dev artifacts
+work
+.pnpm-store
+_tmp_*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

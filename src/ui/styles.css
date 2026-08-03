@@ -1,0 +1,176 @@
+/*
+ * 甜甜圈启动台 (Donut Launcher)
+ * 开发人：oneincase <462534624@qq.com>
+ * 更新日期：2026-08-02
+ */
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  /* background: red; */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#donut {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+#donut.hidden {
+  display: none;
+}
+
+.ring {
+  fill: none;
+  pointer-events: stroke;
+  transition: stroke-width 0.2s ease;
+}
+
+.app-icon {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.app-icon:hover image,
+.app-icon.selected image {
+  transform: scale(var(--icon-scale, 1.25));
+}
+
+.app-icon image {
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: transform 0.15s ease;
+}
+
+.app-label {
+  font-size: 10px;
+  fill: rgba(255, 255, 255, 0.9);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.app-icon:hover .app-label,
+.app-icon.selected .app-label {
+  opacity: 1;
+}
+
+.app-star {
+  fill: rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.app-icon:hover .app-star,
+.app-star.active {
+  opacity: 1;
+}
+
+.app-star.active {
+  fill: #FFE66D;
+}
+
+.app-hide {
+  fill: rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, fill 0.15s ease;
+}
+
+.app-icon:hover .app-hide {
+  opacity: 1;
+}
+
+.app-hide:hover {
+  fill: #ff6b6b;
+}
+
+#center-icon {
+  cursor: pointer;
+}
+
+.page-dots {
+  pointer-events: none;
+}
+
+.page-dot {
+  fill: rgba(255, 255, 255, 0.35);
+  transition: fill 0.15s ease;
+}
+
+.page-dot.active {
+  fill: #ffffff;
+}
+
+.search-box {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05)),
+    rgba(24, 24, 32, 0.55);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 14px;
+  outline: none;
+  z-index: 10;
+  user-select: text;
+}
+
+.search-box::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.search-box:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+#empty-state {
+  position: absolute;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+#empty-state button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  color: white;
+  cursor: pointer;
+}
+
+#empty-state.hidden,
+#settings-panel.hidden,
+.hidden {
+  display: none;
+}
+

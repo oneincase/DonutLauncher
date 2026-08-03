@@ -2,12 +2,13 @@
 
 # 甜甜圈启动台 (Donut Launcher)
 
-macOS 圆形应用启动器 · Electron + SVG 渲染
+macOS 圆形应用启动器 · Tauri + Vue 3
 
 ![macOS](https://img.shields.io/badge/macOS-10.13%2B-black?logo=apple&logoColor=white)
-![Electron](https://img.shields.io/badge/Electron-31-blue?logo=electron&logoColor=white)
+![Tauri](https://img.shields.io/badge/Tauri-2-purple?logo=tauri&logoColor=white)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
-![JavaScript](https://img.shields.io/badge/Language-JavaScript-F7DF1E?logo=javascript&logoColor=black)
+![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript&logoColor=white)
+![Rust](https://img.shields.io/badge/Backend-Rust-000000?logo=rust&logoColor=white)
 
 </div>
 
@@ -17,9 +18,9 @@ macOS 圆形应用启动器 · Electron + SVG 渲染
 
 ## 简介
 
-甜甜圈启动台（Donut Launcher）是一个面向 macOS 的圆形应用启动器：应用图标沿同心圆环排列，按下全局快捷键即可唤出，输入文字实时搜索，回车启动应用。项目基于 Electron 构建，启动台界面完全由 SVG 绘制，支持无边框透明窗口、托盘菜单、收藏与隐藏应用，以及一套完整的可视化设置面板。
+甜甜圈启动台（Donut Launcher）是一个面向 macOS 的圆形应用启动器：应用图标沿同心圆环排列，按下全局快捷键即可唤出，输入文字实时搜索，回车启动应用。项目基于 Tauri 2 + Vue 3 构建，前端界面由 SVG 绘制，支持无边框透明窗口、托盘菜单、收藏与隐藏应用，以及一套完整的可视化设置面板。
 
-启动台默认扫描 `/Applications` 和 `~/Applications`，递归查找 `.app` 应用包，解析 `Info.plist` 与中文本地化名称，并提取应用图标做磁盘缓存。所有设置通过 `electron-store` 持久化，退出后再次打开会恢复上次的圆环颜色、排序方式和自定义快捷键。
+启动台默认扫描 `/Applications` 和 `~/Applications`，递归查找 `.app` 应用包，解析 `Info.plist` 与中文本地化名称，并提取应用图标做磁盘缓存。所有设置通过 Rust 后端持久化，退出后再次打开会恢复上次的圆环颜色、排序方式和自定义快捷键。
 
 > 当前项目处于早期开发阶段，界面、设置项与内部接口可能随版本调整。
 
@@ -32,12 +33,10 @@ macOS 圆形应用启动器 · Electron + SVG 渲染
 - **收藏与隐藏**：图标右上角星标收藏、左上角 `×` 隐藏应用；设置页可取消隐藏
 - **缓慢旋转**：圆环默认缓慢旋转，鼠标悬停时自动暂停，图标本体保持水平
 - **中文友好**：优先读取 `InfoPlist.strings` 中的本地化名称，内置系统应用中文名表，并按 `zh-CN` 排序
-- **图标处理**：优先提取 `.icns` 内嵌 PNG，无法解析时用 `sips` 转换兜底；64px 图标缓存到磁盘，避免重复解码
+- **图标处理**：Rust 后端提取 `.icns` 内嵌 PNG，64px 图标缓存到磁盘，避免重复解码
 - **托盘常驻**：菜单栏托盘提供显示/隐藏、打开设置、退出；窗口失焦自动隐藏，后台保持运行
 - **多显示器**：窗口始终出现在光标所在显示器的工作区中央
 - **设置持久化**：圆环颜色、透明度、粗细、旋转速度、图标大小、排序方式、扫描路径等全部可配置
-- **安全默认值**：开启 `contextIsolation`、关闭 `nodeIntegration`、设置 CSP，并拦截渲染进程新开窗口
-- **工程化工具**：内置单元测试、界面截图验证和资源占用测量脚本
 
 ## 快速开始
 
@@ -45,13 +44,14 @@ macOS 圆形应用启动器 · Electron + SVG 渲染
 
 - macOS 10.13+（建议使用较新系统）
 - [Node.js](https://nodejs.org/) 20+（开发环境使用 Node 24）
-- [pnpm](https://pnpm.io/) 11+（仓库通过 `pnpm-workspace.yaml` 管理 Electron 构建脚本授权）
+- [pnpm](https://pnpm.io/) 11+
+- [Rust](https://www.rust-lang.org/)（Tauri 2 需要）
 
 ### 安装与启动
 
 ```bash
 pnpm install
-pnpm start
+pnpm dev
 ```
 
 首次启动会扫描 `/Applications` 和 `~/Applications`，随后应用常驻后台。按 `Option+Space` 唤出/隐藏启动台，点击圆心的甜甜圈打开设置，通过托盘菜单可以显示/隐藏窗口、打开设置或退出。
@@ -60,13 +60,14 @@ pnpm start
 
 | 命令 | 说明 |
 | --- | --- |
-| `pnpm start` | 以普通模式启动 |
-| `pnpm dev` | 开发模式启动，并打开 DevTools |
-| `pnpm reset` | 启动时清除全部设置并恢复默认值 |
-| `pnpm test` | 运行全部单元测试 |
-| `pnpm verify` | 渲染界面并保存截图，同时校验图标数量与搜索框状态 |
-| `pnpm measure` | 测量扫描、加载、显示/隐藏时的内存与 CPU 占用 |
-| `pnpm build:mac` | 使用 electron-builder 打包 macOS DMG |
+| `pnpm dev` / `pnpm start` | 启动 Tauri 开发应用 |
+| `pnpm build` / `pnpm tauri:build` | 构建 Tauri 安装包（macOS DMG / Windows NSIS） |
+| `pnpm web:dev` | 启动 Vue 3 + Vite 开发服务器（浏览器中自动使用 mock 数据） |
+| `pnpm web:build` | 类型检查并构建前端到 `dist/` |
+| `pnpm test` | 运行前端 vitest 与 Rust 单元测试 |
+| `pnpm test:web` | 运行 Vue 层 vitest 单元测试 |
+| `pnpm test:rust` | 运行 Rust 后端单元测试 |
+| `pnpm verify` | 运行 Playwright 界面冒烟测试 |
 
 ## 使用指南
 
@@ -74,7 +75,7 @@ pnpm start
 
 - 按全局快捷键（默认 `Option+Space`）在显示与隐藏之间切换
 - 点击菜单栏托盘图标也可切换；从托盘菜单可打开设置或退出
-- 窗口失焦后自动隐藏，隐藏超过 60 秒会自动销毁窗口以释放渲染进程资源
+- 窗口失焦后自动隐藏
 
 ### 选择与启动
 
@@ -127,16 +128,16 @@ pnpm start
 
 ## 数据存储
 
-设置、日志与应用图标缓存均保存在 Electron 的 `userData` 目录中。开发模式下的默认位置：
+设置、日志与应用图标缓存均保存在 Tauri 应用数据目录中。开发模式下 macOS 的默认位置：
 
 ```text
-~/Library/Application Support/DonutLauncher/
-├── config.json        # electron-store 设置
+~/Library/Application Support/com.github.oneincase.DonutLauncher/
+├── settings.json      # 应用设置
 ├── icon-cache/        # 应用图标磁盘缓存
-└── logs/main.log      # 主进程日志
+└── logs/              # 运行日志
 ```
 
-打包安装版使用 `productName`（“甜甜圈启动台”）作为目录名。运行 `pnpm reset` 会清空设置并恢复默认值；也可以直接删除 `config.json`。
+打包安装版使用 `productName`（“甜甜圈启动台”）作为目录名。
 
 主要设置项：
 
@@ -152,6 +153,7 @@ pnpm start
 | `enableRotation` | `true` | 是否缓慢旋转 |
 | `rotationSpeed` | `1` | 旋转速度（0-3） |
 | `iconScale` | `1.25` | 选中/悬停图标放大比例 |
+| `targetFps` | `60` | 动画帧率限制：`0` 为无限制，常用 30/60/120 |
 | `autoCheckUpdate` | `true` | 启动时自动检查 GitHub 新版本 |
 | `favorites` | `[]` | 收藏应用 id 列表 |
 | `sortMode` | `name` | 排序方式：`name` / `recent` / `favorites` |
@@ -162,74 +164,74 @@ pnpm start
 
 ```text
 .
-├── build/                       # electron-builder 打包资源（icon.icns 等）
-├── src/
-│   ├── main/                    # Electron 主进程
-│   │   ├── index.js             # 窗口、托盘、全局快捷键与生命周期
-│   │   ├── app-scanner.js       # 应用扫描、plist 解析、图标提取与缓存
-│   │   ├── app-launcher.js      # 启动应用
-│   │   ├── ipc-handlers.js      # IPC 处理器与应用列表缓存
-│   │   ├── settings.js          # electron-store 设置封装
-│   │   ├── settings-schema.js   # 设置项定义与默认值
-│   │   ├── window-size.js       # 动态窗口尺寸计算
-│   │   ├── icns-utils.js        # .icns 图标提取
-│   │   ├── async-utils.js       # 并发工具 mapLimit
-│   │   ├── logger.js            # 主进程日志
-│   │   └── tests/               # 主进程单元测试
-│   ├── preload/
-│   │   └── index.js             # contextBridge 安全桥
-│   ├── renderer/
-│   │   ├── index.html           # 启动台与设置面板 UI
-│   │   ├── styles.css           # 透明窗口与 SVG 样式
-│   │   ├── renderer.js          # 渲染与交互逻辑
-│   │   ├── donut-layout.js      # 环形布局算法
-│   │   ├── app-list-utils.js    # 过滤、排序、选择工具
-│   │   └── *.test.js            # 渲染层单元测试
-│   └── public/                  # 内置资源（默认圆心图片等）
-├── tools/
-│   ├── verify-screenshot.js     # 界面渲染验证与截图
-│   └── measure-resources.js     # 性能与资源占用测量
+├── src-tauri/                   # Rust 后端
+│   ├── src/
+│   │   ├── main.rs              # 入口与 Tauri 命令注册
+│   │   ├── commands.rs          # 前端可调用的 Tauri 命令
+│   │   ├── scanner.rs           # 应用扫描、plist 解析、图标提取与缓存
+│   │   ├── settings.rs          # 设置持久化
+│   │   ├── window.rs            # 窗口创建、显示/隐藏与尺寸调整
+│   │   ├── tray.rs              # 托盘图标与菜单
+│   │   └── shortcut.rs          # 全局快捷键注册
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── src/ui/                      # Vue 3 + TypeScript 前端
+│   ├── App.vue
+│   ├── main.ts
+│   ├── stores/                  # Pinia 状态
+│   ├── components/              # UI 组件
+│   ├── lib/                     # 布局、颜色、列表工具
+│   ├── services/                # Tauri API 封装与 mock
+│   └── ...
+├── src/public/                  # 内置资源（默认圆心图片等）
+├── tests/e2e/                   # Playwright 测试
 ├── docs/
 │   └── screenshot.png           # README 示例截图
-├── pnpm-workspace.yaml          # pnpm 配置
-├── pnpm-lock.yaml
-├── LICENSE                      # Apache-2.0
-└── package.json
+├── package.json
+├── vite.config.ts
+├── vitest.config.ts
+├── playwright.config.ts
+├── pnpm-workspace.yaml
+├── LICENSE
+└── README.md
 ```
 
 ## 架构说明
 
-### 进程划分
+### 前后端划分
 
-- **主进程（`src/main`）**：负责窗口管理、全局快捷键、托盘、应用扫描、应用启动、设置持久化和日志
-- **预加载脚本（`src/preload`）**：通过 `contextBridge` 暴露最小化的 `window.donut` API
-- **渲染进程（`src/renderer`）**：读取应用列表与设置，计算环形布局并绘制 SVG，处理键盘/鼠标交互与设置面板
+- **Rust 后端（`src-tauri/src`）**：负责窗口管理、全局快捷键、托盘、应用扫描、应用启动、设置持久化和日志
+- **Vue 3 前端（`src/ui`）**：负责应用列表渲染、环形布局计算、SVG 绘制、键盘/鼠标交互与设置面板
 
 ### 主要流程
 
-1. 主进程扫描应用目录，读取 `Info.plist` 与本地化名称，提取并缓存图标
-2. 渲染进程通过 IPC 获取应用列表，使用 `donut-layout.js` 计算图标坐标并渲染
-3. 用户选择应用后，主进程通过 `open` 命令启动应用、记录最近使用并隐藏窗口
-4. 设置变更写入 `electron-store`；快捷键变化会立即重新注册全局快捷键
+1. Rust 后端扫描应用目录，读取 `Info.plist` 与本地化名称，提取并缓存图标
+2. 前端通过 Tauri 命令获取应用列表，使用 `donut-layout.ts` 计算图标坐标并渲染
+3. 用户选择应用后，Rust 后端启动应用、记录最近使用并隐藏窗口
+4. 设置变更通过 Tauri 命令写入磁盘；快捷键变化会立即重新注册
 
-### IPC 接口
+### Tauri 命令
 
-| 通道 | 方向 | 说明 |
+| 命令 | 说明 |
+| --- | --- |
+| `get_apps` | 获取应用列表（首次调用触发扫描） |
+| `refresh_apps` | 重新扫描应用 |
+| `launch_app` | 启动应用并记录最近使用 |
+| `get_settings` / `set_settings` | 读取/写入设置 |
+| `reset_settings` | 恢复默认设置 |
+| `pick_folder` | 选择自定义扫描目录 |
+
+### 事件
+
+| 事件 | 方向 | 说明 |
 | --- | --- | --- |
-| `donut:getApps` | renderer -> main | 获取应用列表（首次调用触发扫描） |
-| `donut:refreshApps` | renderer -> main | 重新扫描应用 |
-| `donut:launchApp` | renderer -> main | 启动应用并记录最近使用 |
-| `donut:getSettings` / `donut:setSettings` | renderer -> main | 读取/写入设置 |
-| `donut:hideWindow` | renderer -> main | 隐藏启动台窗口 |
-| `donut:setWindowSize` | renderer -> main | 按应用数量调整窗口尺寸 |
-| `donut:pickFolder` | renderer -> main | 选择自定义扫描目录 |
-| `donut:show` / `donut:hide` | main -> renderer | 窗口显示/隐藏事件 |
-| `donut:openSettings` | main -> renderer | 打开设置面板事件 |
-| `donut:shortcutError` | main -> renderer | 全局快捷键注册失败提示 |
+| `show` / `hide` | backend -> frontend | 窗口显示/隐藏事件 |
+| `open-settings` | backend -> frontend | 打开设置面板事件 |
+| `shortcut-error` | backend -> frontend | 全局快捷键注册失败提示 |
 
 ### 环形布局
 
-布局算法集中在 `donut-layout.js` 中，纯函数实现、便于单元测试：
+布局算法集中在 `src/ui/lib/donut-layout.ts` 中，纯函数实现、便于单元测试：
 
 - 基础视口为 720x720；第一圈容纳 10 个图标，之后每圈递增 8 个
 - 内圈半径 52，圈间距 88；窗口尺寸为布局视口的 1.25 倍，最小 900x900，并留出屏幕边距
@@ -244,37 +246,27 @@ pnpm start
 pnpm test
 ```
 
-测试使用 Node 内置的 `node:test`，覆盖环形布局边界、应用过滤与排序、图标提取、并发工具和设置默认值等逻辑。
+前端测试使用 [Vitest](https://vitest.dev/)，覆盖环形布局边界、应用过滤与排序、颜色处理与快捷键解析等逻辑。Rust 后端测试使用 `cargo test`，覆盖应用扫描、设置序列化与命令边界。
 
-### 截图验证
+### 界面测试
 
 ```bash
 pnpm verify
 ```
 
-脚本会以 900x900 透明窗口渲染启动台，检查图标数量与搜索框状态，并保存截图到 `work/verify-ring.png`。可用 `--out` 指定输出路径，加 `--rotate` 保持旋转状态：
-
-```bash
-pnpm verify -- --out docs/screenshot.png
-```
-
-### 资源占用测量
-
-```bash
-pnpm measure
-```
-
-脚本测量应用扫描耗时、冷启动加载耗时、显示/隐藏状态下的 RSS 与 CPU，并输出到 `outputs/measure.json`。可选参数包括 `--shown-seconds`、`--hidden-seconds`、`--idle-seconds` 和 `--out`。
+使用 Playwright 在 Chromium 中打开前端开发服务器，对环形渲染、搜索框、设置面板等进行冒烟测试。
 
 ### 打包发布
 
 ```bash
-pnpm build:mac
+pnpm build
 ```
 
-生成物位于 `dist/`，默认输出未签名的 DMG。macOS 打开未签名应用时若被 Gatekeeper 拦截，可右键选择“打开”，或执行：
+Tauri 会构建前端并打包当前平台的安装包。macOS 默认输出未签名的 DMG，Windows 默认输出未签名的 NSIS 安装程序。
 
-推送标签到 GitHub 后，仓库里的 `Release macOS DMG` 工作流会自动在 macOS 上构建 DMG 并发布到 GitHub Releases。
+推送以 `v*` 开头的标签到 GitHub 后，仓库里的 `Release Tauri` 工作流会自动在 macOS 与 Windows 上构建并发布到 GitHub Releases。
+
+macOS 打开未签名应用时若被 Gatekeeper 拦截，可右键选择“打开”，或执行：
 
 ```bash
 xattr -dr com.apple.quarantine "/path/to/甜甜圈启动台-*.dmg"
@@ -292,19 +284,19 @@ xattr -dr com.apple.quarantine "/path/to/甜甜圈启动台-*.dmg"
 
 **忘记快捷键且无法唤出窗口？**
 
-通过托盘菜单打开设置，或运行 `pnpm reset` 恢复默认快捷键。也可以直接删除 `config.json`。
+通过托盘菜单打开设置，或删除 Tauri 应用数据目录下的 `settings.json` 恢复默认设置。
 
 **为什么后台仍有进程？**
 
-启动台需要常驻以响应全局快捷键和托盘操作；隐藏超过 60 秒后窗口会销毁，仅保留主进程。可运行 `pnpm measure` 查看内存占用。
+启动台需要常驻以响应全局快捷键和托盘操作；隐藏窗口后前端不再占用资源，仅保留 Rust 后端进程。
 
 ## 贡献
 
 欢迎提交 Issue、Pull Request 或改进建议。开发时请保持现有风格：
 
-- 使用 CommonJS 与原生 JavaScript，不引入前端框架
+- 前端使用 Vue 3 + TypeScript，优先组合式 API
 - 布局与列表逻辑尽量写成纯函数，便于单元测试
-- 修改行为时同步补充或更新 `*.test.js`
+- 修改行为时同步补充或更新 `*.test.ts` / `*.rs` 测试
 - 提交前运行 `pnpm test`，涉及界面渲染时运行 `pnpm verify`
 
 ## 开源协议
@@ -315,4 +307,4 @@ xattr -dr com.apple.quarantine "/path/to/甜甜圈启动台-*.dmg"
 
 ### 致谢
 
-感谢以下开源项目提供的支持：[Electron](https://www.electronjs.org/)、[electron-store](https://github.com/sindresorhus/electron-store)、[icns-lib](https://github.com/jhermsmeier/node-icns-lib) 与 [electron-builder](https://www.electron.build/)。
+感谢以下开源项目提供的支持：[Tauri](https://tauri.app/)、[Vue.js](https://vuejs.org/)、[Vite](https://vitejs.dev/)、[Rust](https://www.rust-lang.org/) 与 [Tauri Actions](https://github.com/tauri-apps/tauri-action)。

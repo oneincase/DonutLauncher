@@ -8,7 +8,10 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 fn default_scan_paths() -> Vec<String> {
+    #[cfg(target_os = "macos")]
     let mut paths = Vec::new();
+    #[cfg(not(target_os = "macos"))]
+    let paths = Vec::new();
     #[cfg(target_os = "macos")]
     {
         paths.push("/System/Applications".to_string());

@@ -691,7 +691,10 @@ mod windows {
     ) -> Option<Vec<u8>> {
         use std::mem::MaybeUninit;
 
-        use windows::Win32::Graphics::Gdi::{BITMAP, BI_RGB, DIB_RGB_COLORS, GetDIBits, GetObjectW};
+        use windows::Win32::Graphics::Gdi::{
+            BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, GetDIBits, GetObjectW,
+            HGDIOBJ,
+        };
 
         if mask.0.is_null() {
             return None;

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent};
 
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -82,11 +80,13 @@ fn schedule_destroy(app: AppHandle) {
     // hidden window around there and only reap it on macOS.
     #[cfg(target_os = "macos")]
     std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_secs(HIDDEN_WINDOW_TTL_SECS));
+        std::thread::sleep(std::time::Duration::from_secs(HIDDEN_WINDOW_TTL_SECS));
         if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
             if !window.is_visible().unwrap_or(false) {
                 let _ = window.destroy();
             }
         }
     });
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
 }

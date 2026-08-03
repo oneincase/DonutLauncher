@@ -14,9 +14,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - macos-latest
-          - windows-latest
+        include:
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+          - platform: windows-latest
+            args: ''
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
@@ -30,11 +34,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: lts/*
           cache: pnpm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -49,8 +55,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '甜甜圈启动台 ${{ github.ref_name }}'
-          releaseBody: 'Tauri + Vue 版本自动发布'
+          tagName: v__VERSION__
+          releaseName: '甜甜圈启动台 v__VERSION__'
+          releaseBody: |
+            甜甜圈启动台（Donut Launcher）v__VERSION__
+
+            ## 更新内容
+
+            - 多页分页：超过 54 个应用自动分页，触摸板双指滑动或 Tab 键切换
+            - 翻页动画：切换分页时圆心图片沿纵轴翻转 360°
+            - 系统应用：默认扫描 /System/Applications，计算器、磁盘工具等开箱即见
+            - 开机自启动：设置面板新增开机自动启动开关
+            - 启动直接显示窗口，快捷键切换显示/隐藏
+            - 关于页新增 GitHub 项目仓库入口
+
+            选择对应平台的安装包下载安装。
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.args }}

@@ -8,7 +8,10 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 fn default_scan_paths() -> Vec<String> {
-    let mut paths = vec!["/Applications".to_string()];
+    let mut paths = Vec::new();
+    #[cfg(target_os = "macos")]
+    paths.push("/System/Applications".to_string());
+    paths.push("/Applications".to_string());
     if let Some(home) = dirs::home_dir() {
         paths.push(home.join("Applications").to_string_lossy().into_owned());
     }
@@ -17,6 +20,18 @@ fn default_scan_paths() -> Vec<String> {
 
 fn default_center_icon_path() -> String {
     "/center.jpg".to_string()
+}
+
+#[cfg(target_os = "macos")]
+const SYSTEM_APPS_PATH: &str = "/System/Applications";
+
+fn ensure_system_apps_path(settings: &mut Settings) {
+    #[cfg(target_os = "macos")]
+    if !settings.scan_paths.iter().any(|path| path == SYSTEM_APPS_PATH) {
+        settings.scan_paths.insert(0, SYSTEM_APPS_PATH.to_string());
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = settings;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,12 +104,13 @@ impl Default for SettingsState {
 impl SettingsState {
     pub fn load(app: &AppHandle) -> Result<Self, String> {
         let path = settings_path(app)?;
-        let settings = if path.exists() {
+        let mut settings = if path.exists() {
             let raw = fs::read_to_string(&path).map_err(|err| err.to_string())?;
             serde_json::from_str::<Settings>(&raw).map_err(|err| err.to_string())?
         } else {
             Settings::default()
         };
+        ensure_system_apps_path(&mut settings);
         Ok(Self(Mutex::new(settings)))
     }
 
@@ -258,5 +274,45 @@ mod tests {
         let current = Settings::default();
         let partial = serde_json::json!({ "iconScale": 9.0 });
         assert!(merge(&current, &partial).is_err());
+    }
+
+    #[test]
+    fn defaults_include_system_apps_on_macos() {
+        let paths = default_scan_paths();
+        #[cfg(target_os = "macos")]
+        assert!(paths.contains(&"/System/Applications".to_string()));
+        assert!(paths.contains(&"/Applications".to_string()));
+    }
+
+    #[test]
+    fn ensure_system_apps_path_adds_only_when_missing() {
+        let mut settings = Settings::default();
+        settings.scan_paths = vec!["/Applications".to_string()];
+        ensure_system_apps_path(&mut settings);
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            settings.scan_paths.first().map(String::as_str),
+            Some("/System/Applications")
+        );
+
+        let before = settings.scan_paths.clone();
+        ensure_system_apps_path(&mut settings);
+        assert_eq!(settings.scan_paths, before);
+    }
+}
+
+#[cfg(test)]
+mod scan_integration_tests {
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn scans_system_applications() {
+        let apps = crate::scanner::scan_applications(
+            vec!["/System/Applications".to_string()],
+            std::env::temp_dir().join("donut-test-icon-cache"),
+        );
+        let names: Vec<&str> = apps.iter().map(|app| app.name.as_str()).collect();
+        assert!(names.contains(&"Calculator"), "计算器应被扫描到，实际: {names:?}");
+        assert!(names.contains(&"Disk Utility"), "磁盘工具应被扫描到");
+        assert!(!apps.is_empty());
     }
 }

@@ -281,6 +281,11 @@ export const useLauncherStore = defineStore('launcher', () => {
         event.preventDefault();
         moveSelection(0, -1);
         break;
+      case 'Tab':
+        event.preventDefault();
+        if (event.shiftKey) prevPage();
+        else nextPage();
+        break;
       case 'Enter':
         event.preventDefault();
         launchSelected();

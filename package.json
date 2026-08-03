@@ -1,6 +1,6 @@
 {
   "name": "DonutLauncher",
-  "version": "0.0.2",
+  "version": "1.0.1",
   "description": "甜甜圈启动台 - macOS 圆形应用启动器",
   "scripts": {
     "dev": "tauri dev",

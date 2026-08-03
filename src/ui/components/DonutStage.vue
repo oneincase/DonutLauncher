@@ -33,6 +33,7 @@ let hoveredIcons = 0;
 let iconBodies: SVGElement[] = [];
 let wheelAccumulator = 0;
 let wheelIdleTimer: number | null = null;
+let wheelLocked = false;
 
 const layout = computed(() =>
   layoutApps(
@@ -44,6 +45,29 @@ const layout = computed(() =>
 );
 const centerSize = computed(() => props.settings.centerIconSize ?? 56);
 const centerSrc = computed(() => props.settings.centerIconPath || '/center.jpg');
+const centerPct = computed(() => {
+  const size = Math.max(props.viewSize, 1);
+  return (centerSize.value / size) * 100;
+});
+
+const flipClass = ref('');
+let lastFlippedPage = currentPage.value;
+
+watch(
+  () => currentPage.value,
+  (page) => {
+    const direction = page > lastFlippedPage ? -1 : 1;
+    lastFlippedPage = page;
+    playFlip(direction);
+  },
+);
+
+function playFlip(direction: number) {
+  flipClass.value = '';
+  requestAnimationFrame(() => {
+    flipClass.value = direction < 0 ? 'flip-left' : 'flip-right';
+  });
+}
 
 function dotX(index: number): number {
   const count = pageCount.value;
@@ -129,12 +153,23 @@ function onIconsMouseout(event: MouseEvent) {
 }
 
 const PAGE_SWIPE_THRESHOLD = 40;
+const WHEEL_LOCK_MS = 180;
+
+function unlockWheel() {
+  wheelLocked = false;
+  wheelAccumulator = 0;
+  wheelIdleTimer = null;
+}
 
 function onWheel(event: WheelEvent) {
   if (isSettingsOpen.value) return;
   const deltaX = event.deltaX;
   if (deltaX === 0) return;
   event.preventDefault();
+
+  // 翻页后锁定一段时间，避免同一次滑动被拆成多次 wheel 事件而跳页
+  if (wheelLocked) return;
+
   wheelAccumulator += deltaX;
   if (wheelIdleTimer) {
     window.clearTimeout(wheelIdleTimer);
@@ -144,11 +179,10 @@ function onWheel(event: WheelEvent) {
     if (wheelAccumulator < 0) store.nextPage();
     else store.prevPage();
     wheelAccumulator = 0;
+    wheelLocked = true;
+    wheelIdleTimer = window.setTimeout(unlockWheel, WHEEL_LOCK_MS);
   } else {
-    wheelIdleTimer = window.setTimeout(() => {
-      wheelAccumulator = 0;
-      wheelIdleTimer = null;
-    }, 120);
+    wheelIdleTimer = window.setTimeout(unlockWheel, 120);
   }
 }
 
@@ -182,89 +216,79 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <svg
-    id="donut"
-    ref="donutSvgRef"
-    :viewBox="`0 0 ${viewSize} ${viewSize}`"
-    xmlns="http://www.w3.org/2000/svg"
-    :style="{ '--icon-scale': String(settings.iconScale ?? 1.25) }"
-  >
-    <g id="spin-group" ref="spinGroupRef">
-      <g id="rings">
-        <circle
-          v-for="(ring, index) in layout.rings"
-          :key="`ring-${index}`"
-          :cx="layout.center"
-          :cy="layout.center"
-          :r="ring.radius"
-          :stroke="ring.color"
-          :stroke-width="settings.ringStrokeWidth"
-          :stroke-opacity="settings.ringOpacity"
-          fill="none"
-          class="ring"
-        />
-      </g>
-      <g id="icons" ref="iconsGroupRef" @mouseover="onIconsMouseover" @mouseout="onIconsMouseout">
-        <AppIcon
-          v-for="(icon, index) in layout.icons"
-          :key="icon.app.id"
-          :icon="icon"
-          :selected="index === selectedIndex"
-          :icon-size="layout.iconSize"
-          :label-font-size="layout.labelFontSize"
-          :favorite="settings.favorites.includes(icon.app.id)"
-          @launch="emit('launch', $event)"
-          @toggle-favorite="emit('toggle-favorite', $event)"
-          @toggle-hide="emit('toggle-hide', $event)"
-        />
-      </g>
-    </g>
-    <g id="center">
-      <g
-        id="center-icon"
-        :transform="`translate(${layout.center}, ${layout.center})`"
-        @click="emit('open-settings')"
-      >
-        <defs>
-          <clipPath id="center-clip">
-            <circle :r="centerSize / 2" />
-          </clipPath>
-        </defs>
-        <template v-if="centerSrc">
-          <image
-            :x="-centerSize / 2"
-            :y="-centerSize / 2"
-            :width="centerSize"
-            :height="centerSize"
-            :href="centerSrc"
-            preserveAspectRatio="xMidYMid slice"
-            clip-path="url(#center-clip)"
+  <div class="donut-stage">
+    <svg
+      id="donut"
+      ref="donutSvgRef"
+      :viewBox="`0 0 ${viewSize} ${viewSize}`"
+      xmlns="http://www.w3.org/2000/svg"
+      :style="{ '--icon-scale': String(settings.iconScale ?? 1.25) }"
+    >
+      <g id="spin-group" ref="spinGroupRef">
+        <g id="rings">
+          <circle
+            v-for="(ring, index) in layout.rings"
+            :key="`ring-${index}`"
+            :cx="layout.center"
+            :cy="layout.center"
+            :r="ring.radius"
+            :stroke="ring.color"
+            :stroke-width="settings.ringStrokeWidth"
+            :stroke-opacity="settings.ringOpacity"
+            fill="none"
+            class="ring"
           />
-        </template>
-        <template v-else>
-          <circle r="44" fill="rgba(255, 255, 255, 0.12)" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" />
-          <text x="0" y="0" text-anchor="middle" dominant-baseline="middle" font-size="36" class="center-emoji">
-            🍩
-          </text>
-        </template>
+        </g>
+        <g id="icons" ref="iconsGroupRef" @mouseover="onIconsMouseover" @mouseout="onIconsMouseout">
+          <AppIcon
+            v-for="(icon, index) in layout.icons"
+            :key="icon.app.id"
+            :icon="icon"
+            :selected="index === selectedIndex"
+            :icon-size="layout.iconSize"
+            :label-font-size="layout.labelFontSize"
+            :favorite="settings.favorites.includes(icon.app.id)"
+            @launch="emit('launch', $event)"
+            @toggle-favorite="emit('toggle-favorite', $event)"
+            @toggle-hide="emit('toggle-hide', $event)"
+          />
+        </g>
+      </g>
+      <g id="center">
+        <g
+          id="center-icon"
+          :transform="`translate(${layout.center}, ${layout.center})`"
+          @click="emit('open-settings')"
+        >
+          <circle :r="centerSize / 2" fill="transparent" />
+          <circle
+            :r="centerSize / 2"
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.35)"
+            stroke-width="2"
+          />
+        </g>
+      </g>
+      <g v-if="pageCount > 1" id="page-dots" class="page-dots">
         <circle
-          :r="centerSize / 2"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.35)"
-          stroke-width="2"
+          v-for="index in pageCount"
+          :key="index"
+          class="page-dot"
+          :class="{ active: index - 1 === currentPage }"
+          :cx="dotX(index)"
+          :cy="viewSize - 28"
+          r="4"
         />
       </g>
-    </g>
-    <g v-if="pageCount > 1" id="page-dots" class="page-dots">
-      <circle
-        v-for="index in pageCount"
-        :key="index"
-        class="page-dot"
-        :class="{ active: index - 1 === currentPage }"
-        :cx="dotX(index)"
-        :cy="viewSize - 28"
-        r="4"
-      />
-    </g>
-  </svg>
+    </svg>
+    <div
+      class="center-flip"
+      :style="{ width: centerPct + '%', height: centerPct + '%' }"
+    >
+      <div class="center-flip-inner" :class="flipClass">
+        <img v-if="centerSrc" :src="centerSrc" class="center-flip-img" alt="" />
+        <span v-else class="center-flip-emoji">🍩</span>
+      </div>
+    </div>
+  </div>
 </template>

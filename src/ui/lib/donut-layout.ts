@@ -40,7 +40,7 @@ export function calculateRingCount(appCount: number): number {
     ring += 1;
     remaining -= ICONS_PER_RING_BASE + (ring - 1) * ICONS_PER_RING_STEP;
   }
-  return Math.max(ring, 2);
+  return ring;
 }
 
 export function calculatePageCount(appCount: number): number {

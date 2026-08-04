@@ -22,12 +22,12 @@ const emit = defineEmits<{
 }>();
 
 const store = useLauncherStore();
-const { isSettingsOpen, windowHidden, pageCount, currentPage } = storeToRefs(store);
+const { isSettingsOpen, windowHidden, pageCount, currentPage, searchVisible } = storeToRefs(store);
 
 const donutSvgRef = ref<SVGSVGElement | null>(null);
 const spinGroupRef = ref<SVGGElement | null>(null);
 const iconsGroupRef = ref<SVGGElement | null>(null);
-const rotationOffset = ref(0);
+let rotationOffset = 0;
 let rotationId: number | null = null;
 let hoveredIcons = 0;
 let iconBodies: SVGElement[] = [];
@@ -35,11 +35,12 @@ let wheelAccumulator = 0;
 let wheelIdleTimer: number | null = null;
 let wheelLocked = false;
 
+// 旋转只做命令式 transform 更新（非响应式），避免每帧触发 Vue 重渲染导致低帧率下卡顿
 const layout = computed(() =>
   layoutApps(
     props.apps,
     props.settings.ringColors.length ? props.settings.ringColors : DEFAULT_COLORS,
-    rotationOffset.value,
+    0,
     props.viewSize,
   ),
 );
@@ -83,12 +84,12 @@ function applyTransform() {
   const center = layout.value.center;
   group.setAttribute(
     'transform',
-    `translate(${center}, ${center}) rotate(${rotationOffset.value}) scale(${scale}) translate(${-center}, ${-center})`,
+    `translate(${center}, ${center}) rotate(${rotationOffset}) scale(${scale}) translate(${-center}, ${-center})`,
   );
 }
 
 function updateIconTransforms() {
-  const transform = `rotate(${-rotationOffset.value} 0 0)`;
+  const transform = `rotate(${-rotationOffset} 0 0)`;
   iconBodies.forEach((body) => body.setAttribute('transform', transform));
 }
 
@@ -107,7 +108,7 @@ function startRotation() {
     lastRender = now;
     const dt = Math.min(now - last, 50);
     last = now;
-    rotationOffset.value = (rotationOffset.value + dt * 0.006 * speed) % 360;
+    rotationOffset = (rotationOffset + dt * 0.006 * speed) % 360;
     applyTransform();
     updateIconTransforms();
     rotationId = requestAnimationFrame(frame);
@@ -176,7 +177,8 @@ function onWheel(event: WheelEvent) {
     wheelIdleTimer = null;
   }
   if (Math.abs(wheelAccumulator) >= PAGE_SWIPE_THRESHOLD) {
-    if (wheelAccumulator < 0) store.nextPage();
+    // 触控板左滑 deltaX>0 → 下一页；右滑 deltaX<0 → 上一页
+    if (wheelAccumulator > 0) store.nextPage();
     else store.prevPage();
     wheelAccumulator = 0;
     wheelLocked = true;
@@ -256,6 +258,7 @@ onBeforeUnmount(() => {
       </g>
       <g id="center">
         <g
+          v-if="!searchVisible"
           id="center-icon"
           :transform="`translate(${layout.center}, ${layout.center})`"
           @click="emit('open-settings')"
@@ -282,6 +285,7 @@ onBeforeUnmount(() => {
       </g>
     </svg>
     <div
+      v-if="!searchVisible"
       class="center-flip"
       :style="{ width: centerPct + '%', height: centerPct + '%' }"
     >

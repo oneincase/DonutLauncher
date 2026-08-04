@@ -1,6 +1,6 @@
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { AppEntry, SettingsView, UpdateInfo } from '../types';
@@ -54,6 +54,11 @@ export const api = {
 
   checkUpdate: (currentVersion: string): Promise<UpdateInfo> =>
     isMock ? mock.checkUpdate(currentVersion) : checkForUpdate(currentVersion),
+
+  notifyReady: (): void => {
+    if (isMock) return;
+    void emit('window-ready', {});
+  },
 
   onEvent(event: string, handler: () => void): () => void {
     if (isMock) return () => undefined;

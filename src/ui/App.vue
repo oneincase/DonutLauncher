@@ -62,6 +62,7 @@ onBeforeUnmount(() => {
     <EmptyState
       v-else-if="settings"
       :has-apps="store.apps.length > 0"
+      :searching="searchVisible"
       @open-settings="store.openSettings"
     />
     <SearchBox

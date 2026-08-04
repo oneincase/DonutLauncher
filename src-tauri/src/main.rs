@@ -16,6 +16,7 @@ use tauri_plugin_autostart::ManagerExt;
 pub struct AppState {
     pub apps: Mutex<Vec<scanner::AppEntry>>,
     pub dialog_open: AtomicBool,
+    pub window_ever_focused: AtomicBool,
 }
 
 pub struct ShortcutState(pub Mutex<Option<String>>);
@@ -57,6 +58,7 @@ fn main() {
         .manage(AppState {
             apps: Mutex::new(Vec::new()),
             dialog_open: AtomicBool::new(false),
+            window_ever_focused: AtomicBool::new(false),
         })
         .manage(ShortcutState(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
@@ -86,7 +88,12 @@ fn main() {
                 guard.clone()
             };
             sync_autostart(handle, &loaded);
-            window::show_main_window(handle);
+            // 创建窗口但不立即显示；前端初始化完成后发 window-ready 事件再 reveal。
+            // 这样避免 Windows 上 WebView 尚未就绪就 show 导致界面空白/不显示。
+            if let Err(err) = window::create_main_window(handle) {
+                log::error!("failed to create main window: {err}");
+            }
+            window::register_window_ready(handle);
             if let Err(err) = tray::create_tray(handle) {
                 log::warn!("tray creation failed: {err}");
             }

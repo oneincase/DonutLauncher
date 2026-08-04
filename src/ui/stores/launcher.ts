@@ -92,6 +92,7 @@ export const useLauncherStore = defineStore('launcher', () => {
     if (settings.value?.autoCheckUpdate) {
       void checkUpdates();
     }
+    api.notifyReady();
   }
 
   async function saveSettings(partial: Partial<Settings>) {

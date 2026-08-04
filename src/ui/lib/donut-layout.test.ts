@@ -43,7 +43,7 @@ describe('donut layout', () => {
 
   it('grows ring count with app count', () => {
     expect(calculateRingCount(50)).toBeGreaterThan(calculateRingCount(24));
-    expect(calculateRingCount(0)).toBe(2);
+    expect(calculateRingCount(0)).toBe(0);
   });
 
   it('caps ring count at 3 even with many apps', () => {

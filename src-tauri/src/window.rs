@@ -69,9 +69,27 @@ pub fn handle_window_event(window: &Window, event: &WindowEvent) {
     }
     if let WindowEvent::Focused(false) = event {
         let app = window.app_handle().clone();
+        // A native file/folder picker is modal and steals focus while it is
+        // open; do not hide the launcher in that case, otherwise the window
+        // disappears once the user finishes picking.
+        let dialog_open = app
+            .state::<crate::AppState>()
+            .dialog_open
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if dialog_open {
+            return;
+        }
         let _ = window.hide();
         let _ = app.emit("hide", ());
         schedule_destroy(app);
+    } else if let WindowEvent::Focused(true) = event {
+        // Re-focusing means any picker is gone; clear the flag as a safety
+        // net in case the frontend missed resetting it (e.g. user cancelled).
+        window
+            .app_handle()
+            .state::<crate::AppState>()
+            .dialog_open
+            .store(false, std::sync::atomic::Ordering::Relaxed);
     }
 }
 

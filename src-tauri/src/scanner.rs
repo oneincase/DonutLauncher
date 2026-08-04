@@ -503,13 +503,22 @@ mod windows {
             }
         }
 
-        // Shell fallback: resolve the .lnk through the Windows Shell so UWP apps
-        // get their proper icon.
+        // Shell fallback: query the icon through the Windows Shell. Prefer
+        // the .lnk's resolved target — the Shell overlays a shortcut "arrow"
+        // badge onto the icon of a .lnk itself, but not onto an exe. For UWP
+        // apps the target is an App Execution Alias that the Shell resolves to
+        // the package icon; if that fails, fall back to the .lnk.
+        let target = lnk_target_path(&lnk).filter(|path| path.is_file());
+        if let Some(target) = &target {
+            if let Some(png) = shell_icon_png(target) {
+                return Some(png);
+            }
+        }
         shell_icon_png(lnk_path)
     }
 
     #[cfg(target_os = "windows")]
-    fn shell_icon_png(lnk_path: &Path) -> Option<Vec<u8>> {
+    fn shell_icon_png(shell_path: &Path) -> Option<Vec<u8>> {
         use std::ffi::OsStr;
         use std::io::Cursor;
         use std::mem::MaybeUninit;
@@ -555,8 +564,10 @@ mod windows {
             }
         }
 
-        // Resolve the .lnk through the Shell to get its HICON.
-        let wide: Vec<u16> = OsStr::new(lnk_path).encode_wide().chain(Some(0)).collect();
+        // Resolve the file's icon through the Shell to get its HICON. This is
+        // called with the .lnk's resolved target (an exe) so no shortcut arrow
+        // overlay is applied to the returned icon.
+        let wide: Vec<u16> = OsStr::new(shell_path).encode_wide().chain(Some(0)).collect();
         let mut info = MaybeUninit::<SHFILEINFOW>::uninit();
         let result = unsafe {
             SHGetFileInfoW(
@@ -762,7 +773,9 @@ mod windows {
             .map(|duration| duration.as_millis() as u64)
             .unwrap_or(0);
         let hash = md5_hex(&lnk_path.to_string_lossy());
-        let cache_file = cache_dir.join(format!("win-{hash}-{mtime}.png"));
+        // "win2": bump when the icon extraction logic changes so stale cached
+        // icons (e.g. ones with the shortcut arrow overlay) are regenerated.
+        let cache_file = cache_dir.join(format!("win2-{hash}-{mtime}.png"));
         if cache_file.is_file() {
             if let Ok(bytes) = fs::read(&cache_file) {
                 return data_url(&bytes);

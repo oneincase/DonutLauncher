@@ -7,6 +7,7 @@ mod shortcut;
 mod tray;
 mod window;
 
+use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 
 use tauri::{Manager, RunEvent};
@@ -14,6 +15,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 pub struct AppState {
     pub apps: Mutex<Vec<scanner::AppEntry>>,
+    pub dialog_open: AtomicBool,
 }
 
 pub struct ShortcutState(pub Mutex<Option<String>>);
@@ -54,6 +56,7 @@ fn main() {
         .plugin(autostart)
         .manage(AppState {
             apps: Mutex::new(Vec::new()),
+            dialog_open: AtomicBool::new(false),
         })
         .manage(ShortcutState(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
@@ -62,7 +65,8 @@ fn main() {
             commands::launch_app,
             commands::get_settings,
             commands::set_settings,
-            commands::reset_settings
+            commands::reset_settings,
+            commands::set_dialog_open
         ])
         .setup(|app| {
             let handle = app.handle();

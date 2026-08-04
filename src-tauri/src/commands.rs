@@ -6,6 +6,16 @@ use tauri_plugin_autostart::ManagerExt;
 use crate::scanner::{self, AppEntry};
 use crate::settings::{self, SettingsState, SettingsView};
 
+/// Marks whether a native file/folder picker is open. While true the window
+/// stays visible even when it loses focus, so picking a folder or image in
+/// the settings does not hide the launcher.
+#[tauri::command]
+pub fn set_dialog_open(state: State<'_, crate::AppState>, open: bool) {
+    state
+        .dialog_open
+        .store(open, std::sync::atomic::Ordering::Relaxed);
+}
+
 #[tauri::command]
 pub fn get_apps(
     app: AppHandle,

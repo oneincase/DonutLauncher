@@ -7,7 +7,7 @@ import { buildAccelerator, IS_MAC } from '../lib/shortcut-utils';
 import { calculatePageCount, paginateApps } from '../lib/donut-layout';
 import { api } from '../services/api';
 import { hideWindow, syncWindowSize } from '../services/window-service';
-import { checkForUpdate, isAllowedExternalUrl } from '../services/update-service';
+import { isAllowedExternalUrl } from '../services/update-service';
 
 export const useLauncherStore = defineStore('launcher', () => {
   const apps = ref<AppEntry[]>([]);
@@ -219,6 +219,10 @@ export const useLauncherStore = defineStore('launcher', () => {
     );
   }
 
+  function setFilePickerOpen(open: boolean) {
+    void api.setDialogOpen(open);
+  }
+
   async function pickCenterIcon(file: File) {
     if (!draft.value) return;
     const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -304,7 +308,7 @@ export const useLauncherStore = defineStore('launcher', () => {
   }
 
   async function checkUpdates() {
-    latestUpdateInfo.value = await checkForUpdate(version.value);
+    latestUpdateInfo.value = await api.checkUpdate(version.value);
   }
 
   async function openExternal(url: string) {
@@ -375,6 +379,7 @@ export const useLauncherStore = defineStore('launcher', () => {
     moveRingColor,
     addScanPath,
     removeScanPath,
+    setFilePickerOpen,
     pickCenterIcon,
     resetCenterIcon,
     recordShortcut,

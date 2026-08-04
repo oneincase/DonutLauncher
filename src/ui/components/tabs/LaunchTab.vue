@@ -17,6 +17,14 @@ const autoLaunchLabel = computed(() => {
 function onFileChange() {
   const file = fileInput.value?.files?.[0];
   if (file) void store.pickCenterIcon(file);
+  void store.setFilePickerOpen(false);
+}
+
+function openFilePicker() {
+  // The native file picker steals focus while open; set the flag before
+  // opening so the window does not hide on blur, and clear it on change.
+  void store.setFilePickerOpen(true);
+  fileInput.value?.click();
 }
 </script>
 
@@ -92,7 +100,7 @@ function onFileChange() {
               class="hidden"
               @change="onFileChange"
             />
-            <button id="pick-center-btn" type="button" class="settings-btn" @click="fileInput?.click()">
+            <button id="pick-center-btn" type="button" class="settings-btn" @click="openFilePicker">
               选择图片
             </button>
             <button

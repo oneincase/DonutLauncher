@@ -18,6 +18,12 @@ function onKeydown(event: KeyboardEvent) {
   store.handleKeydown(event);
 }
 
+function onContextMenu(event: MouseEvent) {
+  // WKWebView on macOS shows a native context menu (including "Reload") on
+  // right click; suppress it since this app has no use for it.
+  event.preventDefault();
+}
+
 onMounted(async () => {
   unlisteners.push(api.onEvent('show', () => void store.onShow()));
   unlisteners.push(api.onEvent('hide', () => store.onHide()));
@@ -28,11 +34,13 @@ onMounted(async () => {
     }),
   );
   window.addEventListener('keydown', onKeydown);
+  window.addEventListener('contextmenu', onContextMenu, { capture: true });
   await store.init();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown);
+  window.removeEventListener('contextmenu', onContextMenu, { capture: true });
   unlisteners.forEach((unlisten) => unlisten());
   unlisteners = [];
 });
